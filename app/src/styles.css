@@ -1,0 +1,154 @@
+/* ============================================================
+   styles.css — 냉장고 재료 메뉴 추천 (M1, 단일 CSS 파일)
+   칩 색 = 상태 표시: s0 검정 / s1 파랑 / s2 빨강
+   M2부터 칩 클릭 = 색 사이클 (cursor pointer), 최근bar 칩 클릭 = 칩 추가
+   ============================================================ */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #1d1f23; --muted: #6b7280; --line: #e3e6ea;
+  --chip-black: #2b2f36; --chip-black-ink: #ffffff;
+  --chip-blue: #1f6feb; --chip-blue-ink: #ffffff;
+  --chip-red: #d1242f; --chip-red-ink: #ffffff;
+  --accent: #1f6feb; --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app { max-width: 720px; margin: 0 auto; padding: 16px 14px 28px; }
+.app__header { margin-bottom: 14px; }
+.app__title { font-size: 22px; margin: 0 0 4px; }
+.app__hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* M2 색전용 안내 (legend): 검정/파랑/빨강의 의미 */
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.legend__chip { font-size: 12px; padding: 4px 10px; cursor: default; }
+
+/* ---------- 조 (zone) ---------- */
+.zone {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 12px 12px 14px; margin-bottom: 12px;
+}
+.zone__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.zone__title { font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; gap: 7px; }
+/* 조 이름 옆 파랑+빨강(사용 지정) 개수 배지 */
+.zone__count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: #eaf1ff; color: var(--accent); font-size: 11.5px; font-weight: 700;
+}
+.zone__add {
+  border: 1px solid var(--accent); color: var(--accent); background: #eaf1ff;
+  border-radius: 8px; font-size: 15px; line-height: 1; padding: 6px 10px; cursor: pointer;
+}
+.zone__add:active { transform: translateY(1px); }
+.zone__add--custom { background: #fff4e5; border-color: #b26a00; color: #8a5200; }
+.zone__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.zone__empty { font-size: 12.5px; color: var(--muted); }
+
+/* ---------- 칩 ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 999px; padding: 6px 8px 6px 12px;
+  font-size: 13.5px; border: 1px solid transparent;
+  user-select: none; cursor: pointer; /* M2: 클릭 = 색 사이클 */
+}
+.chip--s0 { background: var(--chip-black); color: var(--chip-black-ink); }  /* 검정: 보유 */
+.chip--s1 { background: var(--chip-blue); color: var(--chip-blue-ink); }    /* 파랑: 주역 */
+.chip--s2 { background: var(--chip-red); color: var(--chip-red-ink); }      /* 빨강: 임박+필수 */
+.chip--recent { background: #eef1f5; color: #3c4450; border: 1px dashed #c8ccd4; }
+/* M2: 최근bar 칩 클릭 = 즉시 칩 추가 */
+.chip--recent-btn { font: inherit; cursor: pointer; }
+.chip--recent-btn:hover { background: #e3e8ef; }
+.chip--recent-btn:active { transform: translateY(1px); }
+.chip__x {
+  border: none; background: rgba(255, 255, 255, 0.18); color: inherit;
+  border-radius: 999px; width: 20px; height: 20px;
+  font-size: 13px; line-height: 1; cursor: pointer; padding: 0;
+}
+.chip--recent .chip__x { display: none; }
+
+/* ---------- ＋ 인라인 입력창 ---------- */
+.zone__input { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.zone__input--custom {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 12px; margin-bottom: 12px;
+}
+.zone__input-box {
+  width: 100%; font-size: 15px; padding: 10px 12px;
+  border: 1.5px solid var(--accent); border-radius: 8px; outline: none;
+}
+.zone__suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.zone__suggest-label { font-size: 12px; color: var(--muted); }
+.suggest-chip {
+  background: #f1f3f6; border: 1px solid var(--line);
+  border-radius: 999px; font-size: 12px; padding: 4px 9px; color: #45505f;
+}
+
+/* ---------- 최근바 ---------- */
+.custom-area { margin-top: 2px; }
+.recent { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.recent__label { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.recent__empty { font-size: 12px; color: var(--muted); }
+
+/* ---------- M3: 드래그 정렬 (@dnd-kit) ---------- */
+/* 조 헤더 = 블록(조) 드래그 핸들: 헤더를 잡아야 블록 통째 이동 */
+.zone__header { cursor: grab; touch-action: manipulation; }
+.zone__header--dragging { cursor: grabbing; }
+.zone__drag-handle {
+  color: #9aa3af; font-size: 15px; letter-spacing: -2px;
+  padding-right: 4px; user-select: none;
+}
+/* 칩: 전체가 드래그 유닛이므로 브라우저 스크롤 캐슬링 방지 */
+.chip { touch-action: manipulation; }
+.chip--dragging { cursor: grabbing; box-shadow: 0 6px 18px rgba(29,31,35,.25); }
+
+/* ---------- M4: 레시피 추천 버튼 + 결과 카드 ---------- */
+.app__recommend { margin-top: 16px; }
+.recommend-btn {
+  width: 100%; padding: 14px 16px; font-size: 16px; font-weight: 700;
+  color: #fff; background: var(--accent); border: none; border-radius: var(--radius);
+  cursor: pointer;
+}
+.recommend-btn:active { transform: translateY(1px); }
+
+.result-card {
+  margin-top: 12px; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px;
+}
+.result-card--empty { text-align: center; }
+.result-card__msg { margin: 0; font-size: 14px; color: #8a5200; font-weight: 600; }
+.result-card__label { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+.result-card__prompt {
+  margin: 0; font-size: 14px; line-height: 1.55; word-break: keep-all;
+  background: #f1f3f6; border-radius: 8px; padding: 10px 12px;
+}
+.result-card__row { margin-top: 10px; display: flex; justify-content: flex-end; }
+.result-card__copy {
+  border: 1px solid var(--accent); background: #eaf1ff; color: var(--accent);
+  border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.result-card__copy:active { transform: translateY(1px); }
+.result-card__links { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.launch-btn {
+  flex: 1 1 auto; text-align: center; text-decoration: none; font-size: 14px; font-weight: 600;
+  border-radius: 8px; padding: 9px 12px; border: 1px solid var(--line);
+}
+.launch-btn--search { background: #f1f3f6; color: #1d1f23; }
+.launch-btn--llm { background: #fff4e5; border-color: #e5c99a; color: #8a5200; }
+.result-card__hint { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
+
+/* ---------- 하단 ---------- */
+.app__footer { margin-top: 14px; }
+.app__footer-note { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+
+@media (max-width: 480px) {
+  .app__title { font-size: 19px; }
+  .chip { font-size: 13px; }
+}
