@@ -1,16 +1,18 @@
-// App.jsx — v1.3 (명세 3·4·5·8절 + 전수검사 규칙 9절)
-// 화면: 헤더(타이틀 + ⓘ 토글 설명) → [모두 선택][모두 해제] → 조 6개(각 조 끝 ＋)
+// App.jsx — v1.4 (명세 1~6절 + 전수검사 규칙)
+// 화면: 헤더(타이틀 + ⓘ 2문장 설명) → [모두 선택][모두 해제] → 조 7개(각 조 끝 ＋, 접기/펼치기)
 //       → 종류 체크박스 5종 → [레시피 추천] → 결과 카드
-// v1.3 변화:
-//   - 자동 이동 폐기에 따른 문구 제거, 범례 "검정" → "회색" 표기 (상태 값 0 유지)
-//   - 헤더: 설명 2줄 삭제 + "냉장고 재료 · 메뉴 추천 ⓘ" (ⓘ 클릭/터치로 펼침/접힘, 기본 접힘)
-//   - 드래그 복구: DndContext(MouseSensor distance 8 / TouchSensor delay 300 tolerance 5)
-//       조 안 자유 정렬 + 조 간 이동(zone 변경) + 빈 조 드롭(그 조 마지막)
-//   - 마이그레이션 안내(MigrationNotice): v1.2 저장 데이터 존재 시 1회 표시
-//   - 화면 순서 = 저장 순서 = 프롬프트 나열 순서 (단일 소스)
+// v1.4 변화:
+//   - 범례 라인 완전 삭제 (명세 2절)
+//   - ⓘ 설명 2문장: "쓸 재료는 파랑, 임박 재료는 빨강입니다. 칩을 길게 눌러 순서를 바꿀 수 있어요."
+//   - 드래그 조 안 정렬만: MouseSensor distance 5 / TouchSensor delay 0 tolerance 8
+//       (useDroppable·크로스드롭·빈 조 드롭 코드 제거 — 명세 6절, 검증 4)
+//   - 접기/펼치기 (명세 5절): 640px 이하(matchMedia)에서만 발동 = compact
+//       접힘 = 2행까지만 렌더, 펼침 상태 = openZones(fridge-open-zones)
+//       프롬프트는 compact/openZones와 무관하게 chips 전량 사용
+//   - footer 표기 v1.4로 갱신
 // kinds(종류)는 화면 상태 전용 — localStorage 비저장 (v1.2 승인 3 유지)
-import { useCallback, useState } from 'react'
-import { DndContext, MouseSensor, TouchSensor, pointerWithin, useSensor, useSensors } from '@dnd-kit/core'
+import { useCallback, useEffect, useState } from 'react'
+import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { useFridge } from './hooks/useFridge.js'
 import { ZONE_LABELS, ZONE_ORDER } from './data/materials.js'
 import { buildPrompt } from './lib/prompt.js'
@@ -19,12 +21,28 @@ import { KindPicker } from './components/KindPicker.jsx'
 import { ResultCard } from './components/ResultCard.jsx'
 import { MigrationNotice } from './components/MigrationNotice.jsx'
 
-const ZONE_PREFIX = 'zone-'
+// 명세 5절 1안: 640px 이하(모바일)에서만 접기/펼치기 발동
+const COMPACT_QUERY = '(max-width: 640px)'
+
+// matchMedia 감시 → 640px 이하 여부 (데스크톱: 항상 펼침)
+// window. 접두사 없이 전역 matchMedia 호출 (var-scan window 0건 규칙 유지, 명세 6절)
+function useCompact() {
+  const [compact, setCompact] = useState(false) // 첫 렌더는 펼쳐진 상태로, 마운트 직후 보정
+  useEffect(() => {
+    const mq = matchMedia(COMPACT_QUERY)
+    const onChange = (event) => setCompact(event.matches)
+    onChange(mq) // 마운트 시점 판정 (모바일면 이 후부터 접힘 적용)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return compact
+}
 
 export default function App() {
   const {
     chips,
     migrationNeeded,
+    openZones,
     confirmMigration,
     getLegacyJson,
     addChip,
@@ -32,45 +50,37 @@ export default function App() {
     cycleChip,
     selectAll,
     selectNone,
+    toggleOpen,
     applyDrag,
   } = useFridge()
 
+  const compact = useCompact() // 검증 5: 640px 이하 발동
   const [kinds, setKinds] = useState([]) // 화면 상태만 (localStorage와 무관)
   const [showCard, setShowCard] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // 검증 8: 설명 기본 접힘
 
-  const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 8 } })
+  const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
   const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 300, tolerance: 5 }, // 검증 5: 300ms 미만 탭 = 사이클
+    activationConstraint: { delay: 0, tolerance: 8 }, // 검증 3: 탭=사이클 / 8px 이동=즉시 드래그
   })
   const sensors = useSensors(mouseSensor, touchSensor)
 
   const toggleKind = (kind) =>
     setKinds((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
 
-  // 검증 5·6: 드래그 종료 → 순서·zone 변경 (드롭한 자리에 삽입)
+  // 검증 3·4: 드래그 종료 → 같은 조 안 순서만 변경. 다른 조 over는 moveChipState가 무이동 처리
   const handleDragEnd = useCallback(
     ({ active, over }) => {
       if (!over) return
       const dragName = String(active.id)
       const overId = String(over.id)
       if (overId === dragName) return
-      if (overId.startsWith(ZONE_PREFIX)) {
-        const zone = Number(overId.slice(ZONE_PREFIX.length))
-        const target = chips.filter((c) => c.zone === zone)
-        if (target.length === 0) {
-          applyDrag(dragName, null, zone) // 빈 조 = 그 조의 마지막 칩으로 이동
-        } else {
-          applyDrag(dragName, target[target.length - 1].name) // 조 끝(마지막 칩 뒤)에 삽입
-        }
-        return
-      }
-      applyDrag(dragName, overId) // 조 내 자유 정렬 / 조 간 이동(chip.zone 변경)
+      applyDrag(dragName, overId)
     },
-    [applyDrag, chips]
+    [applyDrag]
   )
 
-  // 검증 11~17: 추천 클릭 시점의 chips+kinds로 3줄 생성 (회색만 있으면 null → 빈 메시지)
+  // 검증 6·7: 추천 클릭 시점의 chips+kinds로 3줄 생성 (접힘 무관 전량)
   const handleRecommend = () => {
     setShowCard(true)
   }
@@ -78,7 +88,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app__header">
-        {/* 명세 4절: 타이틀 + ⓘ 토글 (설명은 기본 접힘) */}
+        {/* 명세 2절: 타이틀 + ⓘ 토글 (설명은 기본 접힘) */}
         <h1 className="app__title">
           냉장고 재료 · 메뉴 추천{' '}
           <button
@@ -93,23 +103,10 @@ export default function App() {
         </h1>
         {helpOpen && (
           <p className="app__help">
-            냉장고 문을 열듯 재료를 고르고, 쓸 재료는 파랑으로, 빨리 소비해야 하는 재료는 빨강으로 바꿔주세요.
-            회색은 이번 추천에서 빼는 재료예요. 칩을 길게 눌러 원하는 자리로 옮기고, 조 사이도 옮겨 다닐 수 있어요.
+            쓸 재료는 파랑, 임박 재료는 빨강입니다. 칩을 길게 눌러 순서를 바꿀 수 있어요.
           </p>
         )}
-
-        {/* 범례 한 줄: v1.3 표기 = 파랑/빨강/회색 (구 검정 → 회색) */}
-        <p className="legend">
-          <span className="legend__item">
-            <span className="chip chip--s1 chip--mini">파랑</span> 쓸 재료
-          </span>
-          <span className="legend__item">
-            <span className="chip chip--s2 chip--mini">빨강</span> 임박+최우선
-          </span>
-          <span className="legend__item">
-            <span className="chip chip--s0 chip--mini">회색</span> 후보 제외
-          </span>
-        </p>
+        {/* 범례 라인: v1.4 폐지 (명세 2절) */}
 
         {/* 명세 5절 일괄 버튼: 조 목록 위 한 줄, 화면 우측 */}
         <div className="app__batch">
@@ -124,9 +121,9 @@ export default function App() {
 
       {migrationNeeded && <MigrationNotice getLegacyJson={getLegacyJson} onConfirm={confirmMigration} />}
 
-      {/* 검증 5·6: 드래그로 조 안 순서 + 조 간 이동 (순서·zone 즉시 저장) */}
+      {/* 검증 3·4: 드래그는 조 안 정렬만 (조 간 over = 무이동) */}
       <main className="app__zones">
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           {ZONE_ORDER.map((zone) => (
             <ZoneList
               key={zone}
@@ -136,6 +133,9 @@ export default function App() {
               onAdd={addChip}
               onRemove={removeChip}
               onCycle={cycleChip}
+              compact={compact}
+              open={openZones.includes(zone)}
+              onToggleOpen={() => toggleOpen(zone)}
             />
           ))}
         </DndContext>
@@ -151,7 +151,7 @@ export default function App() {
       </section>
 
       <footer className="app__footer">
-        <p className="app__footer-note">v1.3 · 6개 조 63종 · 드래그 복구 · 상태 전환은 위치 그대로</p>
+        <p className="app__footer-note">v1.4 · 7개 조 67종 · 솔리드 칩 · 640px 이하 접기/펼치기 · 조 안 드래그</p>
       </footer>
     </div>
   )

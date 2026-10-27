@@ -1,35 +1,41 @@
-// ZoneList.jsx — v1.3
-// 조 1개 = 헤더(번호 + 이름 + ＋) + 드래그 가능한 칩 목록 + ＋ 클릭 시 인라인 입력창
-//   (Enter로 "입력한 조"에 파랑 칩 — v1.3: 원래 조 복원 규칙 폐기, +(기타) 버튼 없음)
-// 빈 조(칩 0개) = 헤더와 ＋만 표시. droppable이라 칩을 드롭하면 그 조의 마지막 칩이 된다 (검증 6).
-// SortableContext(rectSortingStrategy)로 조 안 정렬을 지원하고,
-// 컨테이너 자체는 useDroppable(id=`zone-N`)으로 조 간 드롭/빈 조 드롭을 받는다.
+// ZoneList.jsx — v1.4
+// 조 1개 = 헤더(번호 + 이름 + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
+// v1.4 변화:
+//   - 드래그는 조 안 정렬만 (useDroppable/zone-N 컨테이너 폐지 → 조 간 드롭 불가, 검증 4)
+//   - 접기/펼치기 (명세 5절): 640px 이하(컴팩트)일 때만 발동.
+//       접힘 = 2행까지만 렌더 (2행 기준 = 한 행 약 4칩 → 8개까지). '펼치기 ▾' 버튼.
+//       펼침 = 전량 렌더 + '접기 ▴' 버튼. 펼침 여부는 App의 openZones(localStorage)가 단일 소스.
+//       (승인 2) 접힌 조는 2행까지만 렌더·드래그 — SortableContext/Chip도 2행분만.
+//       데스크톱(640px 초과) = 항상 펼침: 버튼 없이 전량 렌더.
+//   - SortableContext items = 렌더된(보이는) 칩만. SortableContext는 조 컨테이너 안에 위치.
 import { useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
-import { useDroppable } from '@dnd-kit/core'
 import { Chip } from './Chip.jsx'
 
-export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle }) {
-  const [open, setOpen] = useState(false)
+// 2행 기준 (명세 5절: 2행 초과 시 접힘). 한 행 ≈ 4칩(720px 기준) 잡음 → 8개 초과 = 3행.
+// 검증 5: 컴팩트(640px 이하)에서 칩 9개인 조 = '펼치기 ▾' 표시, 8개 이하 = 버튼 없음.
+const COLLAPSE_LIMIT = 8
+
+export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen }) {
+  const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
-  const { setNodeRef, isOver } = useDroppable({ id: `zone-${zone}`, data: { zone } })
 
   const zoneChips = chips.filter((c) => c.zone === zone)
+  // 컴팩트 + 접힘(기본)이면 2행분(8개)만 렌더. 데스크톱·펼침은 전량.
+  const collapsed = compact && !open && zoneChips.length > COLLAPSE_LIMIT
+  const visibleChips = collapsed ? zoneChips.slice(0, COLLAPSE_LIMIT) : zoneChips
+  const showToggle = compact && zoneChips.length > COLLAPSE_LIMIT
 
   const submit = () => {
     const name = text.trim()
     if (name === '') return
-    onAdd(name, zone) // 검증 8: Enter로 입력한 조에 파랑 칩 / 검증 9: 중복 방지
+    onAdd(name, zone) // Enter로 입력한 조에 파랑 칩 / 중복 방지
     setText('')
-    setOpen(false)
+    setAdding(false)
   }
 
   return (
-    <section
-      ref={setNodeRef}
-      className={`zone${isOver ? ' zone--over' : ''}`}
-      data-zone={zone}
-    >
+    <section className="zone" data-zone={zone}>
       <div className="zone__header">
         <span className="zone__title">
           {zone} {label}
@@ -38,25 +44,33 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle }) {
           type="button"
           className="zone__add"
           aria-label={`${label} 조 재료 추가`}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setAdding((v) => !v)}
         >
           ＋
         </button>
       </div>
 
-      <SortableContext
-        id={`zone-${zone}`}
-        items={zoneChips.map((c) => c.name)}
-        strategy={rectSortingStrategy}
-      >
-        <div className="zone__chips">
-          {zoneChips.map((c) => (
+      <div className="zone__chips">
+        <SortableContext
+          id={`zone-${zone}`}
+          items={visibleChips.map((c) => c.name)}
+          strategy={rectSortingStrategy}
+        >
+          {visibleChips.map((c) => (
             <Chip key={c.name} chip={c} onRemove={onRemove} onCycle={onCycle} />
           ))}
-        </div>
-      </SortableContext>
+        </SortableContext>
+      </div>
 
-      {open && (
+      {showToggle && (
+        <div className="zone__fold">
+          <button type="button" className="zone__fold-btn" onClick={onToggleOpen}>
+            {open ? '접기 ▴' : `펼치기 ▾ (${zoneChips.length - COLLAPSE_LIMIT})`}
+          </button>
+        </div>
+      )}
+
+      {adding && (
         <div className="zone__input">
           <input
             type="text"
@@ -71,7 +85,7 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle }) {
                 submit()
               }
               if (e.key === 'Escape') {
-                setOpen(false)
+                setAdding(false)
                 setText('')
               }
             }}
