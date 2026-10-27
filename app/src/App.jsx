@@ -1,18 +1,18 @@
-// App.jsx — v1.4 (명세 1~6절 + 전수검사 규칙)
+// App.jsx — v1.5 (명세 1~3절 + 전수검사 규칙)
 // 화면: 헤더(타이틀 + ⓘ 2문장 설명) → [모두 선택][모두 해제] → 조 7개(각 조 끝 ＋, 접기/펼치기)
 //       → 종류 체크박스 5종 → [레시피 추천] → 결과 카드
-// v1.4 변화:
-//   - 범례 라인 완전 삭제 (명세 2절)
-//   - ⓘ 설명 2문장: "쓸 재료는 파랑, 임박 재료는 빨강입니다. 칩을 길게 눌러 순서를 바꿀 수 있어요."
-//   - 드래그 조 안 정렬만: MouseSensor distance 5 / TouchSensor delay 0 tolerance 8
-//       (useDroppable·크로스드롭·빈 조 드롭 코드 제거 — 명세 6절, 검증 4)
-//   - 접기/펼치기 (명세 5절): 640px 이하(matchMedia)에서만 발동 = compact
-//       접힘 = 2행까지만 렌더, 펼침 상태 = openZones(fridge-open-zones)
-//       프롬프트는 compact/openZones와 무관하게 chips 전량 사용
-//   - footer 표기 v1.4로 갱신
+// v1.5 변화:
+//   - 드래그 센서 단일화: PointerSensor activationConstraint { delay: 1500, tolerance: 10 }
+//       (iPhone 홈화면 방식: 1.5초 꾹 누름 → 들림. Mouse dist 5 / Touch delay 0·450·600 전부 폐기)
+//       10px 선행 이동 = 드래그 취소 → 스크롤·탭(색 사이클) 보호. KeyboardSensor 없음.
+//   - 접힘 기준 v1.5: 개수 상수 폐지 → ZoneList의 래퍼 높이 연산 (max-height 2행 + scrollHeight 판정)
+//   - 조 헤더 (n/m) 참여 카운트 (ZoneList에서 파생 계산)
+//   - 640px 이하(matchMedia) 발동 = compact, 펼침 상태 = openZones(fridge-open-zones) 유지
+//   - 프롬프트는 compact/openZones와 무관하게 chips 전량 사용 (v1.4 유지)
+//   - footer 표기 v1.5로 갱신
 // kinds(종류)는 화면 상태 전용 — localStorage 비저장 (v1.2 승인 3 유지)
 import { useCallback, useEffect, useState } from 'react'
-import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { useFridge } from './hooks/useFridge.js'
 import { ZONE_LABELS, ZONE_ORDER } from './data/materials.js'
 import { buildPrompt } from './lib/prompt.js'
@@ -59,11 +59,13 @@ export default function App() {
   const [showCard, setShowCard] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // 검증 8: 설명 기본 접힘
 
-  const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
-  const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 0, tolerance: 8 }, // 검증 3: 탭=사이클 / 8px 이동=즉시 드래그
+  // 명세 1절 (v1.5 확정): 포인터 센서 1종 단일화 — 모바일·PC 공통
+  //   delay 1500: 칩을 1.5초 꾹 누르는 동안엔 드래그 시작 보류 → 짧은 탭은 클릭(색 사이클)으로 100% 살아남음.
+  //   tolerance 10: 꾹 누름 중 손이 10px 이상 먼저 움직이면 드래그 취소 → 세로 스크롤에 넘김.
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: { delay: 1500, tolerance: 10 },
   })
-  const sensors = useSensors(mouseSensor, touchSensor)
+  const sensors = useSensors(pointerSensor) // KeyboardSensor 없음 (명세 1절)
 
   const toggleKind = (kind) =>
     setKinds((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
@@ -151,7 +153,7 @@ export default function App() {
       </section>
 
       <footer className="app__footer">
-        <p className="app__footer-note">v1.4 · 7개 조 67종 · 솔리드 칩 · 640px 이하 접기/펼치기 · 조 안 드래그</p>
+        <p className="app__footer-note">v1.5 · 7개 조 67종 · 솔리드 칩 · 1.5초 롱프레스 드래그 · 640px 이하 2행 접기/펼치기 · 조 안 드래그</p>
       </footer>
     </div>
   )

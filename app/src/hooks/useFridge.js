@@ -1,9 +1,10 @@
-// localStorage 'fridge-chips:v4' + 'fridge-open-zones' 를 다루는 훅 (로직은 lib/storage.js 위임) — v1.4
-// v1.4 변화:
-//   - openZones(펼친 조 번호 배열): loadOpenZones로 시작, toggleOpen으로 변경 + 즉시 저장 (명세 5절)
+// localStorage 'fridge-chips:v4' + 'fridge-open-zones' 를 다루는 훅 (로직은 lib/storage.js 위임) — v1.5
+// v1.5: 스키마·저장 로직 v1.4 그대로 (KEY v4 유지, 변경 없음).
+//   - openZones(펼친 조 번호 배열): loadOpenZones로 시작, toggleOpen으로 변경 + 즉시 저장 (명세 2절)
 //   - applyDrag = 조 안 정렬만 (moveChipState가 조 간 이동이면 원본 반환)
 //   - selectAll / selectNone = 일괄 버튼 (순서 유지, state만 변경)
 //   - 마이그레이션 안내(migrationNeeded → confirmMigration): v4 키 없고 레거시(v1~v3) 있으면 표시
+//   - (n/m) 헤더 카운트는 화면 파생 계산(ZoneList) — 저장 대상 아님 (명세 3절)
 // kinds(종류 체크)는 화면 상태이므로 App이 들고 있고 localStorage에 저장하지 않는다 (v1.2 승인 3 유지).
 import { useCallback, useState } from 'react'
 import { STATE_BLUE, STATE_OFF } from '../data/materials.js'

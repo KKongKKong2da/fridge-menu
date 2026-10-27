@@ -1,13 +1,13 @@
-// Chip.jsx — v1.4
-// 솔리드 스타일 (명세 1절): 상태색 100% 채움 + 테두리 없음 + 흰 글자 (styles.css)
-//   chip--s1 파랑 #2563eb / chip--s2 빨강 #dc2626 / chip--s0 회색 #6b7280 (값 0, 표기만 회색)
-// 클릭 1회 = 사이클 (파랑 1 -> 빨강 2 -> 회색 0 -> 파랑 1). 위치 이동은 없음 (storage가 state만 변경).
-// 드래그 (v1.4): useSortable의 listeners를 칩 본체 버튼에만 붙인다.
-//   - TouchSensor delay 0 / tolerance 8 → 탭(8px 이내)은 클릭(사이클), 8px 이상 움직임 = 즉시 드래그
-//   - MouseSensor distance 5
-//   - 드래그 중: 스케일 1.08 + 그림자 + z-index 50 (명세 6절)
-//   - × 버튼에는 listeners를 붙이지 않아 드래그 대상이 되지 않는다.
-// 접힌 조에서는 2행까지만 렌더되므로 3행째 칩은 드래그 시작 대상이 아니다 (승인 2).
+// Chip.jsx — v1.5
+// 솔리드 칩 (상태색 100% 채움 + 테두리 없음 + 흰 글자, styles.css) 유지.
+// 클릭 1회 = 사이클 (파랑 1 -> 빨강 2 -> 회색 0 -> 파랑 1). 위치 이동은 storage에서 state만 변경.
+// 드래그 (v1.5, iPhone 홈화면 방식):
+//   - App의 PointerSensor activationConstraint { delay: 1500, tolerance: 10 } 단일 센서가 전역 규제.
+//     1500ms 꾹 누름 + 10px 이내 정지 = 활성화(들림). 10px 선행 이동 = 드래그 취소 → 스크롤에 넘김.
+//   - 짧은 탭 = onClick(색 사이클) 100% 동작. (v1.4 TouchSensor delay 0의 탭 소멸 문제 소멸)
+//   - 활성화 시 스케일 1.05 + 그림자 + z-index 50, 드롭 후 150ms transition.
+//   - touch-action: 기본 pan-y(스크롤 양보) → 드래그 활성화 시에만 none.
+//   - 핸들(⠿) 분리 없음. × 버튼에는 listeners를 붙이지 않아 드래그·롱프레스 대상이 아니다.
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
@@ -16,10 +16,12 @@ export function Chip({ chip, onRemove, onCycle }) {
     useSortable({ id: chip.name })
 
   const style = {
-    // 드래그 중에는 이동 transform에 스케일 1.08을 얹는다 (명세 6절)
-    transform: (CSS.Transform.toString(transform) ?? '') + (isDragging ? ' scale(1.08)' : ''),
-    transition: transition ? 'transform 150ms ease' : undefined, // 명세 6절: 드롭 후 150ms 미끄러짐
+    // v1.5: 활성화(들림) 스케일 1.05 (v1.4의 1.08 → 1.05로 확정)
+    transform: (CSS.Transform.toString(transform) ?? '') + (isDragging ? ' scale(1.05)' : ''),
+    transition: transition ? 'transform 150ms ease' : undefined, // 드롭 후 150ms 미끄러짐 유지
     zIndex: isDragging ? 50 : undefined,
+    // 스크롤 자유(pan-y) ↔ 드래그 활성화 시에만 none (명세 1절)
+    touchAction: isDragging ? 'none' : 'pan-y',
   }
 
   return (
@@ -33,8 +35,8 @@ export function Chip({ chip, onRemove, onCycle }) {
         ref={setActivatorNodeRef}
         type="button"
         className="chip__body"
-        aria-label={`${chip.name} 상태 변경 (길게 누르면 이동)`}
-        onClick={() => onCycle(chip.name)} // 검증 2: 탭 1회 = 1단계 — 센서(delay 250·tolerance 8)가 실패 시에만 발동
+        aria-label={`${chip.name} 상태 변경 (1.5초 길게 누르면 이동)`}
+        onClick={() => onCycle(chip.name)} // 짧은 탭 = 색 사이클 (지연 센서는 클릭을 막지 않음)
         {...attributes}
         {...listeners}
       >
@@ -46,7 +48,7 @@ export function Chip({ chip, onRemove, onCycle }) {
         aria-label={`${chip.name} 삭제`}
         onClick={(e) => {
           e.stopPropagation()
-          onRemove(chip.name) // x = 삭제 (사이클·드래그와 분리)
+          onRemove(chip.name) // x = 삭제 (사이클·드래그와 분리, 드래그 대상 아님)
         }}
       >
         ×

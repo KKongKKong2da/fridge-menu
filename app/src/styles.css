@@ -1,15 +1,19 @@
 /* ============================================================
-   styles.css — 냉장고 재료 메뉴 추천 (v1.4, 단일 CSS 파일)
+   styles.css — 냉장고 재료 메뉴 추천 (v1.5, 단일 CSS 파일)
    칩 = 솔리드 스타일 (명세 1절)
      배경: 상태색 100% 채움 (opacity 1) / 테두리: 없음 / 글자: 흰색 #fff
      chip--s1 파랑 #2563eb = 쓸 재료(기본)
      chip--s2 빨강 #dc2626 = 임박
      chip--s0 회색 #6b7280 = 후보 제외 (상태 값 0 유지)
      x 버튼: 흰색, hover 시 배경과 동일 계열 어두운 색
-   v1.4 신설: chip--dragging(스케일 1.08은 JS transform, 그림자·z50은 CSS),
-              zone__fold(펼치기/접기 버튼), transition 150ms(JS)
-   v1.4 삭제: 범례(legend·chip--mini), zone--over(조 간 드롭 폐지)
-   v1.4 유지: info-btn/app__help(2문장), migration, batch-btn, kind-picker, result-card
+   v1.5 (CHANGES_v1.5.md):
+     - 롱프레스 1500ms 드래그 = App의 PointerSensor 1종 (delay 1500 / tol 10, JS 측)
+     - touch-action: 칩은 JS가 조작 (기본 pan-y → 드래그 활성화 시에만 none) → CSS 상시 지정 없음
+     - 접힘 = ZoneList 래퍼 높이 연산 (max-height 74px + overflow hidden, JS 인라인) → CSS 규칙 없음
+     - 펼침 라벨 "펼치기 ▼ / 접기 ▲" (숫자 없음), 터치 타깃 44×44px (zone__fold-btn)
+     - chip--dragging: 스케일 1.05(JS transform) + 그림자(CSS) + z-index 50(JS)
+   v1.4 유지: info-btn/app__help(2문장), migration, batch-btn, kind-picker, result-card, transition 150ms(JS)
+   v1.4 삭제 유지: 범례(legend·chip--mini), zone--over(조 간 드롭 폐지)
    ============================================================ */
 :root {
   --bg: #f6f7f9; --card: #ffffff; --ink: #1d1f23; --muted: #6b7280; --line: #e3e6ea;
@@ -85,12 +89,17 @@ body {
 }
 .zone__add:active { transform: translateY(1px); }
 .zone__chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 34px; }
+/* v1.5 접힘: max-height 2행(74px) + overflow hidden은 ZoneList가 인라인으로 적용 (측정 연산과 짝) */
+/* zone__header의 .zone__title이 (n/m) 카운트를 포함 — 텍스트만 갱신, 스타일 그대로 (명세 3절) */
 
-/* ---------- 접기/펼치기 (명세 5절, 640px 이하 발동) ---------- */
-.zone__fold { margin-top: 8px; text-align: center; }
+/* ---------- 접기/펼치기 (명세 2절, 640px 이하 발동) — 라벨 "펼치기 ▼ / 접기 ▲", 조 우측 하단 44×44 ---------- */
+.zone__fold { display: flex; justify-content: flex-end; margin-top: 6px; }
 .zone__fold-btn {
+  all: unset; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
   border: 1.5px solid var(--accent); color: var(--accent); background: var(--card);
-  border-radius: 8px; font-size: 13px; font-weight: 700; padding: 7px 16px; cursor: pointer;
+  border-radius: 10px; font-size: 13px; font-weight: 700; line-height: 1;
+  min-width: 44px; height: 44px; padding: 0 10px; cursor: pointer;
 }
 .zone__fold-btn:active { transform: translateY(1px); }
 
@@ -101,11 +110,11 @@ body {
   font-size: 13.5px; border: none;
   color: #fff;
   user-select: none;
-  touch-action: none;   /* 스크롤과 드래그 충돌 방지 (명세 6절) */
+  /* touch-action은 Chip.jsx가 인라인으로 조작: 기본 pan-y(스크롤) → 드래그 활성화 시에만 none (v1.5) */
   -webkit-user-select: none;
 }
 .chip__body {
-  all: unset; font: inherit; color: #fff; cursor: pointer; /* 탭 1회 = 사이클, 8px 이동 = 드래그 */
+  all: unset; font: inherit; color: #fff; cursor: pointer; /* 짧은 탭 = 사이클, 1.5초 꾹 = 드래그 (PointerSensor 1종) */
   padding: 7px 2px 7px 13px; border-radius: 999px 0 0 999px;
 }
 .chip__x {
@@ -122,7 +131,7 @@ body {
 .chip--s1 { background: var(--blue); }
 .chip--s2 { background: var(--red); }
 .chip--s0 { background: var(--off); }
-/* 드래그 중: 스케일 1.08(JS transform) + 그림자 + z-index 50(JS) (명세 6절) */
+/* 드래그 중: 스케일 1.05(JS transform) + 그림자(CSS) + z-index 50(JS) (명세 1절) */
 .chip--dragging { box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35); }
 
 /* ---------- ＋ 인라인 입력창 ---------- */

@@ -1,30 +1,43 @@
-// ZoneList.jsx — v1.4
-// 조 1개 = 헤더(번호 + 이름 + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
-// v1.4 변화:
-//   - 드래그는 조 안 정렬만 (useDroppable/zone-N 컨테이너 폐지 → 조 간 드롭 불가, 검증 4)
-//   - 접기/펼치기 (명세 5절): 640px 이하(컴팩트)일 때만 발동.
-//       접힘 = 2행까지만 렌더 (2행 기준 = 한 행 약 4칩 → 8개까지). '펼치기 ▾' 버튼.
-//       펼침 = 전량 렌더 + '접기 ▴' 버튼. 펼침 여부는 App의 openZones(localStorage)가 단일 소스.
-//       (승인 2) 접힌 조는 2행까지만 렌더·드래그 — SortableContext/Chip도 2행분만.
-//       데스크톱(640px 초과) = 항상 펼침: 버튼 없이 전량 렌더.
-//   - SortableContext items = 렌더된(보이는) 칩만. SortableContext는 조 컨테이너 안에 위치.
-import { useState } from 'react'
+// ZoneList.jsx — v1.5
+// 조 1개 = 헤더(번호 + 이름 + (n/m) + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
+// v1.5 변화:
+//   - 접힘 기준: 개수(COLLAPSE_LIMIT 6) 폐지 → 래퍼 높이 연산.
+//       칩 전량 렌더 + 래퍼에 max-height 2행(실측 상수 74px) + overflow hidden 적용.
+//       접힘 대상 판정 = scrollHeight > clientHeight + 4 (ResizeObserver로 칩 추가·삭제·리사이즈 시 재계산).
+//       발동은 640px 이하(compact)에서만, 데스크톱은 항상 펼침.
+//   - 라벨 "펼치기 ▼" / "접기 ▲" (숫자 없음), 조 칩 영역 우측 하단, 터치 타깃 44×44px.
+//   - (n/m) 헤더 카운트: n = 파랑+빨강(state 1·2) 칩 수, m = 전체 칩 수.
+//     파생 계산(저장하지 않는다) → chips가 바뀌는 모든 조작(색·추가·삭제·일괄·드래그) 후 React가 다시 렌더하며 즉시 갱신.
+//   - SortableContext items = 조의 칩 전량 (접힌 조도 3행째 칩이 DOM에 존재 → 드래그·정렬 정상).
+import { useEffect, useRef, useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Chip } from './Chip.jsx'
 
-// 2행 기준 (명세 5절: 2행 초과 시 접힘). 2026-10-27 모바일 실측: 한 행 ≈ 3칩 → 6개 초과 = 3행.
-// 검증 5: 컴팩트(640px 이하)에서 칩 7개인 조 = 접힘(▾), 6개 이하 = 버튼 없음.
-const COLLAPSE_LIMIT = 6
+// 칩 2행 높이 실측 상수 (명세 2절 72~78px 범위): 행 ≈ 33px(7+7+글자줄높이) × 2행 + gap 8px = 74px
+const MAX_HEIGHT_2ROWS = 74
+const OVERFLOW_EPSILON = 4 // 접힘 대상 판정: scrollHeight > clientHeight + 4
 
 export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen }) {
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
+  const [overflow, setOverflow] = useState(false)
+  const chipsRef = useRef(null)
 
   const zoneChips = chips.filter((c) => c.zone === zone)
-  // 컴팩트 + 접힘(기본)이면 2행분(8개)만 렌더. 데스크톱·펼침은 전량.
-  const collapsed = compact && !open && zoneChips.length > COLLAPSE_LIMIT
-  const visibleChips = collapsed ? zoneChips.slice(0, COLLAPSE_LIMIT) : zoneChips
-  const showToggle = compact && zoneChips.length > COLLAPSE_LIMIT
+  const selectedCount = zoneChips.filter((c) => c.state === 1 || c.state === 2).length
+  const collapsed = compact && !open // 펼침(open)이면 max-height 제거 → 전량 노출
+  const showToggle = compact && overflow // 실제로 2행을 넘는 칩이 있는 조만 버튼 (데스크톱은 표시 없음)
+
+  // 명세 2절: 칩 추가·삭제·리사이즈 시 래퍼 높이 재측정 (ResizeObserver)
+  useEffect(() => {
+    const el = chipsRef.current
+    if (!el) return
+    const measure = () => setOverflow(el.scrollHeight > el.clientHeight + OVERFLOW_EPSILON)
+    measure() // 펼쳐진 전량 높이 기준선 (max-height 없는 상태에서 측정 → true = 2행 초과 존재)
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [compact]) // compact 토글로 max-height 조건이 바뀌면 재측정 (칩 변화는 observer가 감지)
 
   const submit = () => {
     const name = text.trim()
@@ -38,7 +51,7 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
     <section className="zone" data-zone={zone}>
       <div className="zone__header">
         <span className="zone__title">
-          {zone} {label}
+          {zone} {label} ({selectedCount}/{zoneChips.length})
         </span>
         <button
           type="button"
@@ -50,13 +63,17 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
         </button>
       </div>
 
-      <div className="zone__chips">
+      <div
+        ref={chipsRef}
+        className="zone__chips"
+        style={collapsed ? { maxHeight: MAX_HEIGHT_2ROWS, overflow: 'hidden' } : undefined}
+      >
         <SortableContext
           id={`zone-${zone}`}
-          items={visibleChips.map((c) => c.name)}
+          items={zoneChips.map((c) => c.name)}
           strategy={rectSortingStrategy}
         >
-          {visibleChips.map((c) => (
+          {zoneChips.map((c) => (
             <Chip key={c.name} chip={c} onRemove={onRemove} onCycle={onCycle} />
           ))}
         </SortableContext>
@@ -64,8 +81,13 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
 
       {showToggle && (
         <div className="zone__fold">
-          <button type="button" className="zone__fold-btn" aria-label={open ? '접기' : '펼치기'} onClick={onToggleOpen}>
-            {open ? '▴' : '▾'}
+          <button
+            type="button"
+            className="zone__fold-btn"
+            aria-label={open ? '접기' : '펼치기'}
+            onClick={onToggleOpen}
+          >
+            {open ? '접기 ▲' : '펼치기 ▼'}
           </button>
         </div>
       )}
