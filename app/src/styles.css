@@ -1,14 +1,17 @@
 /* ============================================================
-   styles.css — 냉장고 재료 메뉴 추천 (v1.2, 단일 CSS 파일)
-   칩 = linear 스타일 (배경 투명, 테두리 1.5px solid, 글자 색 = 테두리 색)
-     chip--s1 파랑 #2563eb = 쓸 재료(기본) / chip--s2 빨강 #dc2626 = 임박+최우선
-     chip--s0 검정 #111 = 후보 제외
-   v1.2 제거: dnd 드래그 스타일, 최근바, 제안 칩, 사용 카운트 배지, 4발판 LLM 스타일
-   v1.2 신설: 일괄 버튼(batch-btn), 종류 체크박스(kind-picker), 결과 카드 3줄(lines)
+   styles.css — 냉장고 재료 메뉴 추천 (v1.3, 단일 CSS 파일)
+   칩 = 하이브리드 스타일 (명세 1절)
+     배경: 상태색 12% opacity 채움 / 테두리: 2px solid 상태색 / 글자: 상태색 진한 색
+     chip--s1 파랑 #2563eb = 쓸 재료(기본)
+     chip--s2 빨강 #dc2626 = 임박+최우선
+     chip--s0 회색 #6b7280 = 후보 제외   ← 구 검정(#111) 슬롯 재정의 (상태 값 0 유지)
+   v1.3 신설: info-btn/설명 펼침(app__help), migration(초기화 안내),
+              zone--over(드롭 대상 표시), chip touch-action: none(드래그)
+   v1.3 유지: batch-btn(일괄), kind-picker(종류), result-card(3줄+복사/Google)
    ============================================================ */
 :root {
   --bg: #f6f7f9; --card: #ffffff; --ink: #1d1f23; --muted: #6b7280; --line: #e3e6ea;
-  --blue: #2563eb; --red: #dc2626; --off: #111;
+  --blue: #2563eb; --red: #dc2626; --off: #6b7280;
   --accent: #2563eb; --radius: 10px;
 }
 
@@ -24,15 +27,28 @@ body {
 
 .app { max-width: 720px; margin: 0 auto; padding: 16px 14px 28px; }
 .app__header { margin-bottom: 14px; }
-.app__title { font-size: 22px; margin: 0 0 4px; }
-.app__hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+.app__title { font-size: 22px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.app__footer { margin-top: 14px; }
 
-/* 범례 한 줄 (승인 4): 파랑=쓸 재료 / 빨강=임박+최우선 / 검정=후보 제외 */
+/* ⓘ 토글 (명세 4절): 클릭/터치로 설명 펼침/접힘, 기본 접힘 */
+.info-btn {
+  all: unset; cursor: pointer; font-size: 15px; line-height: 1;
+  width: 24px; height: 24px; border-radius: 50%; text-align: center;
+  border: 1.5px solid var(--accent); color: var(--accent); background: var(--card);
+}
+.info-btn:active { transform: translateY(1px); }
+.app__help {
+  margin: 8px 0 0; font-size: 13px; line-height: 1.65; color: var(--ink);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; word-break: keep-all;
+}
+
+/* 범례 한 줄 (v1.3): 파랑=쓸 재료 / 빨강=임박+최우선 / 회색=후보 제외 */
 .legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 .legend__item { display: inline-flex; align-items: center; gap: 6px; }
 .chip--mini { font-size: 11.5px; padding: 2px 9px; pointer-events: none; }
 
-/* 일괄 버튼 (명세 3절): 조 목록 위 한 줄, 우측 정렬 */
+/* 일괄 버튼 (명세 5절): 조 목록 위 한 줄, 우측 정렬 */
 .app__batch { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .batch-btn {
   border: 1.5px solid var(--accent); color: var(--accent); background: var(--card);
@@ -40,11 +56,28 @@ body {
 }
 .batch-btn:active { transform: translateY(1px); }
 
+/* ---------- 초기화 안내 (명세 8절) ---------- */
+.migration {
+  background: #fff8e6; border: 1.5px solid #e0b64a; border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.migration__title { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: #7a5200; }
+.migration__body { margin: 0 0 10px; font-size: 13px; line-height: 1.6; color: #4b4b4b; word-break: keep-all; }
+.migration__row { display: flex; gap: 8px; }
+.migration__copy, .migration__go {
+  flex: 1 1 0; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.migration__copy { border: 1.5px solid #e0b64a; background: var(--card); color: #7a5200; }
+.migration__go { border: 1.5px solid var(--accent); background: var(--accent); color: #fff; }
+.migration__copy:active, .migration__go:active { transform: translateY(1px); }
+
 /* ---------- 조 (zone) ---------- */
 .zone {
   background: var(--card); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 12px 12px 14px; margin-bottom: 12px;
+  transition: border-color 120ms ease, background 120ms ease;
 }
+.zone--over { border-color: var(--accent); background: #f0f6ff; } /* 조 간 드롭 대상 표시 */
 .zone__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .zone__title { font-weight: 700; font-size: 15px; }
 .zone__add {
@@ -52,17 +85,19 @@ body {
   border-radius: 8px; font-size: 15px; line-height: 1; padding: 6px 11px; cursor: pointer;
 }
 .zone__add:active { transform: translateY(1px); }
-.zone__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.zone__chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 34px; }
 
-/* ---------- 칩 (v1.2 linear) ---------- */
+/* ---------- 칩 (v1.3 하이브리드) ---------- */
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
   border-radius: 999px; padding: 0;
-  font-size: 13.5px; background: transparent; border: 1.5px solid;
+  font-size: 13.5px; border: 2px solid;
   user-select: none;
+  touch-action: none;   /* 스크롤과 드래그 충돌 방지 (명세 3절) */
+  -webkit-user-select: none;
 }
 .chip__body {
-  all: unset; font: inherit; cursor: pointer; /* 클릭 = 상태 사이클 (검증 2) */
+  all: unset; font: inherit; cursor: pointer; /* 탭 1회 = 상태 사이클 (검증 3), 롱프레스 = 드래그 */
   padding: 6px 2px 6px 13px; border-radius: 999px 0 0 999px;
 }
 .chip__x {
@@ -71,9 +106,19 @@ body {
   color: inherit; opacity: 0.65; font-weight: 700;
 }
 .chip__x:hover { opacity: 1; }
-.chip--s1 { border-color: var(--blue); color: var(--blue); } /* 파랑: 쓸 재료(기본) */
-.chip--s2 { border-color: var(--red);  color: var(--red);  } /* 빨강: 임박+최우선 */
-.chip--s0 { border-color: var(--off);  color: var(--off);  } /* 검정: 후보 제외 */
+/* 상태색 12% opacity 채움 + 진한 테두리·글자 */
+.chip--s1 {
+  border-color: var(--blue); color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 12%, var(--card));
+}
+.chip--s2 {
+  border-color: var(--red); color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, var(--card));
+}
+.chip--s0 {
+  border-color: var(--off); color: var(--off);
+  background: color-mix(in srgb, var(--off) 12%, var(--card));
+}
 
 /* ---------- ＋ 인라인 입력창 ---------- */
 .zone__input { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
@@ -82,7 +127,7 @@ body {
   border: 1.5px solid var(--accent); border-radius: 8px; outline: none;
 }
 
-/* ---------- 종류 체크박스 (v1.2 신설, 추천 버튼 바로 위) ---------- */
+/* ---------- 종류 체크박스 (추천 버튼 바로 위) ---------- */
 .kind-picker { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 14px; }
 .kind-picker__item { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .kind-picker__item input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
@@ -103,7 +148,7 @@ body {
 .result-card--empty { text-align: center; }
 .result-card__msg { margin: 0; font-size: 14px; color: #8a5200; font-weight: 600; }
 .result-card__label { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
-/* 3줄을 줄마다 <p>로 분리 렌더 → 첫 줄+둘째 줄이 합쳐지지 않음 (검증 13) */
+/* 3줄을 줄마다 <p>로 분리 렌더 → 첫 줄+둘째 줄이 합쳐지지 않음 (검증 9) */
 .result-card__lines {
   background: #f1f3f6; border-radius: 8px; padding: 10px 12px;
 }
@@ -125,7 +170,6 @@ body {
 }
 
 /* ---------- 하단 ---------- */
-.app__footer { margin-top: 14px; }
 .app__footer-note { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
 
 @media (max-width: 480px) {
