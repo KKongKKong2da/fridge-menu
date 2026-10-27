@@ -12,9 +12,9 @@ import { useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Chip } from './Chip.jsx'
 
-// 2행 기준 (명세 5절: 2행 초과 시 접힘). 한 행 ≈ 4칩(720px 기준) 잡음 → 8개 초과 = 3행.
-// 검증 5: 컴팩트(640px 이하)에서 칩 9개인 조 = '펼치기 ▾' 표시, 8개 이하 = 버튼 없음.
-const COLLAPSE_LIMIT = 8
+// 2행 기준 (명세 5절: 2행 초과 시 접힘). 2026-10-27 모바일 실측: 한 행 ≈ 3칩 → 6개 초과 = 3행.
+// 검증 5: 컴팩트(640px 이하)에서 칩 7개인 조 = 접힘(▾), 6개 이하 = 버튼 없음.
+const COLLAPSE_LIMIT = 6
 
 export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen }) {
   const [adding, setAdding] = useState(false)
@@ -64,8 +64,8 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
 
       {showToggle && (
         <div className="zone__fold">
-          <button type="button" className="zone__fold-btn" onClick={onToggleOpen}>
-            {open ? '접기 ▴' : `펼치기 ▾ (${zoneChips.length - COLLAPSE_LIMIT})`}
+          <button type="button" className="zone__fold-btn" aria-label={open ? '접기' : '펼치기'} onClick={onToggleOpen}>
+            {open ? '▴' : '▾'}
           </button>
         </div>
       )}

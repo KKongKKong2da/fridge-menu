@@ -34,7 +34,7 @@ export function Chip({ chip, onRemove, onCycle }) {
         type="button"
         className="chip__body"
         aria-label={`${chip.name} 상태 변경 (길게 누르면 이동)`}
-        onClick={() => onCycle(chip.name)} // 검증 2: 탭 1회 = 1단계 (8px 이내 정지)
+        onClick={() => onCycle(chip.name)} // 검증 2: 탭 1회 = 1단계 — 센서(delay 250·tolerance 8)가 실패 시에만 발동
         {...attributes}
         {...listeners}
       >
