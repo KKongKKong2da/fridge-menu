@@ -1,48 +1,49 @@
-// ZoneList.jsx — v1.5
+// ZoneList.jsx — v1.5.1
 // 조 1개 = 헤더(번호 + 이름 + (n/m) + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
-// v1.5 변화:
-//   - 접힘 기준: 개수(COLLAPSE_LIMIT 6) 폐지 → 래퍼 높이 연산.
-//       칩 전량 렌더 + 래퍼에 max-height 2행(실측 상수 74px) + overflow hidden 적용.
-//       접힘 대상 판정 = scrollHeight > clientHeight + 4 (ResizeObserver로 칩 추가·삭제·리사이즈 시 재계산).
-//       발동은 640px 이하(compact)에서만, 데스크톱은 항상 펼침.
-//   - 라벨 "펼치기 ▼" / "접기 ▲" (숫자 없음), 조 칩 영역 우측 하단, 터치 타깃 44×44px.
-//   - (n/m) 헤더 카운트: n = 파랑+빨강(state 1·2) 칩 수, m = 전체 칩 수.
-//     파생 계산(저장하지 않는다) → chips가 바뀌는 모든 조작(색·추가·삭제·일괄·드래그) 후 React가 다시 렌더하며 즉시 갱신.
-//   - SortableContext items = 조의 칩 전량 (접힌 조도 3행째 칩이 DOM에 존재 → 드래그·정렬 정상).
+// v1.5.1 수정:
+//   - [접기 기능 소멸 버그] v1.5는 판정을 "scrollHeight > clientHeight + 4"로 두어, 조가 펼친 상태
+//     (max-height 제거 → clientHeight = 전체 콘텐츠 높이)가 되면 판정이 false가 되어
+//     "펼치기 ▼ / 접기 ▲" 버튼 자체가 사라졌다.
+//   - [해결] 판정을 콘텐츠 높이 기준으로 바꾼다:
+//       qualifies = scrollHeight > (2행 높이 74px + 4)   → 펼쳐져 있어도 scrollHeight는 전체 콘텐츠 높이이므로
+//       자격이 유지되어 접기 ▲ 버튼이 계속 보인다. 접힌 상태도 같은 값 → 펼치기 ▼ 버튼.
+//       open과 무관하게 자격만 있으면 compact일 때 버튼 표시.
+//   - (n/m) 헤더 카운트 유지: n = 파랑+빨강(state 1·2), m = 전체. 파생 계산(저장 안 함), 즉시 갱신.
+//   - SortableContext items = 조의 칩 전량. 접힌 조는 3행째 칩이 화면에 안 보이므로 펼치고 옮기는 정책 (v1.5 확정 유지).
 import { useEffect, useRef, useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Chip } from './Chip.jsx'
 
-// 칩 2행 높이 실측 상수 (명세 2절 72~78px 범위): 행 ≈ 33px(7+7+글자줄높이) × 2행 + gap 8px = 74px
+// 칩 2행 높이 실측 상수 (명세 2절 72~78px 범위): 행 ≈ 33px × 2행 + gap 8px = 74px
 const MAX_HEIGHT_2ROWS = 74
-const OVERFLOW_EPSILON = 4 // 접힘 대상 판정: scrollHeight > clientHeight + 4
+const OVERFLOW_EPSILON = 4
 
 export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen }) {
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
-  const [overflow, setOverflow] = useState(false)
+  const [qualifies, setQualifies] = useState(false)
   const chipsRef = useRef(null)
 
   const zoneChips = chips.filter((c) => c.zone === zone)
   const selectedCount = zoneChips.filter((c) => c.state === 1 || c.state === 2).length
-  const collapsed = compact && !open // 펼침(open)이면 max-height 제거 → 전량 노출
-  const showToggle = compact && overflow // 실제로 2행을 넘는 칩이 있는 조만 버튼 (데스크톱은 표시 없음)
+  const collapsed = compact && !open
+  const showToggle = compact && qualifies // 펼친 조도 qualifies 유지 → 접기 ▲ 계속 표시
 
-  // 명세 2절: 칩 추가·삭제·리사이즈 시 래퍼 높이 재측정 (ResizeObserver)
+  // 칩 추가·삭제·리사이즈 시 콘텐츠 높이 재측정 (ResizeObserver)
   useEffect(() => {
     const el = chipsRef.current
     if (!el) return
-    const measure = () => setOverflow(el.scrollHeight > el.clientHeight + OVERFLOW_EPSILON)
-    measure() // 펼쳐진 전량 높이 기준선 (max-height 없는 상태에서 측정 → true = 2행 초과 존재)
+    const measure = () => setQualifies(el.scrollHeight > MAX_HEIGHT_2ROWS + OVERFLOW_EPSILON)
+    measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [compact]) // compact 토글로 max-height 조건이 바뀌면 재측정 (칩 변화는 observer가 감지)
+  }, [compact, zoneChips.length]) // 칩 개수 변화도 즉시 반영 (observer와 이중 안전)
 
   const submit = () => {
     const name = text.trim()
     if (name === '') return
-    onAdd(name, zone) // Enter로 입력한 조에 파랑 칩 / 중복 방지
+    onAdd(name, zone)
     setText('')
     setAdding(false)
   }

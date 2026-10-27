@@ -35,12 +35,13 @@ st = cycleChipState(st, n0.name); ok(st.chips.find((c) => c.name === n0.name).st
 st = cycleChipState(st, n0.name); ok(st.chips.find((c) => c.name === n0.name).state === 1, '1-4 탭3: 회색→파랑(1) — 3연속 왕복')
 ok(st.chips.every((c, i) => c.zone === persist({ chips: makeDefaultChips() }).chips[i].zone), '1-5 사이클 중 위치·조 불변')
 
-// ── 2) 롱프레스 1500ms: App.jsx 센서 설정 텍스트 검사 (주석 제거 후) ──
+// ── 2) 센서 분리 (v1.5.1): Mouse distance 5 (PC) + Touch delay 1500/tol 10 (모바일) ──
 const appSrc = read('src/App.jsx', 'utf8')
 const appCode = stripC(appSrc)
-ok(/PointerSensor/.test(appCode) && !/MouseSensor|TouchSensor/.test(appCode), '2-1 센서 = PointerSensor 1종 (Mouse/Touch 폐기 확인)')
-ok(/activationConstraint:\s*\{\s*delay:\s*1500,\s*tolerance:\s*10\s*\}/.test(appCode), '2-2 activationConstraint { delay: 1500, tolerance: 10 }')
-ok(!/KeyboardSensor/.test(appCode), '2-3 KeyboardSensor 없음')
+ok(/MouseSensor/.test(appCode) && /TouchSensor/.test(appCode) && !/PointerSensor/.test(appCode), '2-1 센서 = Mouse+Touch 분리 (PointerSensor 폐기)')
+ok(/activationConstraint: \{ distance: 5 \}/.test(appCode), '2-2 MouseSensor { distance: 5 } (PC 5px 드래그)')
+ok(/activationConstraint: \{\s*delay: 1500,\s*tolerance: 10\s*\}/.test(appCode), '2-3 TouchSensor { delay: 1500, tolerance: 10 } (모바일 1.5초)')
+ok(!/KeyboardSensor/.test(appCode), '2-4 KeyboardSensor 없음')
 
 // ── 3) 활성화 표시·touch-action 규칙 (Chip.jsx 텍스트 검사) ──
 const chipSrc = read('src/components/Chip.jsx', 'utf8')
@@ -55,7 +56,7 @@ const zoneSrc = read('src/components/ZoneList.jsx', 'utf8')
 const zoneCode = stripC(zoneSrc)
 const mh = Number((zoneSrc.match(/MAX_HEIGHT_2ROWS\s*=\s*(\d+)/) ?? [])[1])
 ok(mh >= 72 && mh <= 78, `4-1 2행 높이 실측 상수 ${mh}px (명세 72~78 범위)`)
-ok(/scrollHeight > el\.clientHeight \+ OVERFLOW_EPSILON/.test(zoneSrc) && /OVERFLOW_EPSILON = 4/.test(zoneSrc), '4-2 판정 scrollHeight > clientHeight + 4')
+ok(/scrollHeight > MAX_HEIGHT_2ROWS \+ OVERFLOW_EPSILON/.test(zoneCode) && /OVERFLOW_EPSILON = 4/.test(zoneCode) && /MAX_HEIGHT_2ROWS = 74/.test(zoneCode), '4-2 자격 판정 scrollHeight > 74 + 4 (콘텐츠 높이 → 펼침 후에도 접기 버튼 유지)')
 ok(/ResizeObserver/.test(zoneSrc), '4-3 ResizeObserver 재측정')
 ok(/maxHeight: MAX_HEIGHT_2ROWS/.test(zoneSrc) && /overflow: 'hidden'/.test(zoneSrc), '4-4 max-height 2행 + overflow hidden')
 ok(/펼치기 ▼/.test(zoneCode) && /접기 ▲/.test(zoneCode) && !/const COLLAPSE_LIMIT/.test(zoneCode), '4-5 라벨 펼치기 ▼/접기 ▲ (숫자·개수 상수 폐지)')

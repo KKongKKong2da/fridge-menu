@@ -1,18 +1,21 @@
-// App.jsx — v1.5 (명세 1~3절 + 전수검사 규칙)
+// App.jsx — v1.5.1 (명세 1~3절 + 전수검사 규칙)
 // 화면: 헤더(타이틀 + ⓘ 2문장 설명) → [모두 선택][모두 해제] → 조 7개(각 조 끝 ＋, 접기/펼치기)
 //       → 종류 체크박스 5종 → [레시피 추천] → 결과 카드
-// v1.5 변화:
-//   - 드래그 센서 단일화: PointerSensor activationConstraint { delay: 1500, tolerance: 10 }
-//       (iPhone 홈화면 방식: 1.5초 꾹 누름 → 들림. Mouse dist 5 / Touch delay 0·450·600 전부 폐기)
-//       10px 선행 이동 = 드래그 취소 → 스크롤·탭(색 사이클) 보호. KeyboardSensor 없음.
-//   - 접힘 기준 v1.5: 개수 상수 폐지 → ZoneList의 래퍼 높이 연산 (max-height 2행 + scrollHeight 판정)
-//   - 조 헤더 (n/m) 참여 카운트 (ZoneList에서 파생 계산)
-//   - 640px 이하(matchMedia) 발동 = compact, 펼침 상태 = openZones(fridge-open-zones) 유지
-//   - 프롬프트는 compact/openZones와 무관하게 chips 전량 사용 (v1.4 유지)
-//   - footer 표기 v1.5로 갱신
+// v1.5.1 변화 (사용자 요청: 칩 이동 불가 + 접기 소멸):
+//   - 드래그 센서 분리 (v1.5 단일 PointerSensor delay 1500는 활성화 불안정 → 폐기):
+//       MouseSensor { distance: 5 }                → PC: 눌른 채 5px 이동 = 즉시 드래그
+//       TouchSensor { delay: 1500, tolerance: 10 } → 모바일: 1.5초 꾹 = 들림(iPhone 방식),
+//                                                    10px 선행 이동 = 드래그 취소 → 스크롤 양보
+//       KeyboardSensor 없음.
+//   - 접기 기능 복원: ZoneList의 자격 판정을 scrollHeight > 2행(74px)+4 로 바꿔
+//       펼쳐진 상태에서도 접기 ▲ 버튼이 사라지지 않음 (v1.5는 clientHeight 비교로 펼침 후 버튼 소멸)
+//   - 접힘 = ZoneList 래퍼 높이 연산 (max-height 2행 + 자격 판정), 640px 이하 = compact
+//   - 조 헤더 (n/m) 참여 카운트 (ZoneList 파생 계산)
+//   - 펼침 상태 = openZones(fridge-open-zones) / 프롬프트는 compact·openZones 무관 chips 전량 (유지)
+//   - footer 표기 v1.5.1로 갱신
 // kinds(종류)는 화면 상태 전용 — localStorage 비저장 (v1.2 승인 3 유지)
 import { useCallback, useEffect, useState } from 'react'
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { useFridge } from './hooks/useFridge.js'
 import { ZONE_LABELS, ZONE_ORDER } from './data/materials.js'
 import { buildPrompt } from './lib/prompt.js'
@@ -59,13 +62,15 @@ export default function App() {
   const [showCard, setShowCard] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // 검증 8: 설명 기본 접힘
 
-  // 명세 1절 (v1.5 확정): 포인터 센서 1종 단일화 — 모바일·PC 공통
-  //   delay 1500: 칩을 1.5초 꾹 누르는 동안엔 드래그 시작 보류 → 짧은 탭은 클릭(색 사이클)으로 100% 살아남음.
-  //   tolerance 10: 꾹 누름 중 손이 10px 이상 먼저 움직이면 드래그 취소 → 세로 스크롤에 넘김.
-  const pointerSensor = useSensor(PointerSensor, {
+  // 명세 1절 (v1.5.1): 입력 장치별 센서 분리 — PC는 드래그, 모바일은 롱프레스
+  //   MouseSensor: 마우스는 눌림 즉시 감지 → 5px 이동하면 드래그 시작 (PC 드래그 이동 정상화)
+  //   TouchSensor: 손가락은 1500ms 꾹 누름 동안 보류 → 그 사이 10px 이상 움직이면 취소(스크롤 양보),
+  //                1500ms 정지 유지 시 들림(iPhone 홈화면 방식). 짧은 탭은 클릭(색 사이클)으로 남음.
+  const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
+  const touchSensor = useSensor(TouchSensor, {
     activationConstraint: { delay: 1500, tolerance: 10 },
   })
-  const sensors = useSensors(pointerSensor) // KeyboardSensor 없음 (명세 1절)
+  const sensors = useSensors(mouseSensor, touchSensor) // KeyboardSensor 없음 (명세 1절)
 
   const toggleKind = (kind) =>
     setKinds((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
@@ -153,7 +158,7 @@ export default function App() {
       </section>
 
       <footer className="app__footer">
-        <p className="app__footer-note">v1.5 · 7개 조 67종 · 솔리드 칩 · 1.5초 롱프레스 드래그 · 640px 이하 2행 접기/펼치기 · 조 안 드래그</p>
+        <p className="app__footer-note">v1.5.1 · 7개 조 67종 · 솔리드 칩 · PC 5px 드래그 · 모바일 1.5초 롱프레스 · 640px 이하 2행 접기/펼치기 · 조 안 드래그</p>
       </footer>
     </div>
   )
