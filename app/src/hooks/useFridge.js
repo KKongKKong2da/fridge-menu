@@ -1,67 +1,61 @@
-// localStorage 'fridge-chips' 키 하나만 다루는 훅 (로직은 lib/storage.js 위임)
-// M2: 칩 클릭 사이클(검정>파랑>빨강) + 최근바 클릭 즉시 추가
-// M3: applyDrag(activeId, overId) — dnd DragEnd를 storage.moveByDragState(블록 모델)에 위임
+// localStorage 'fridge-chips' 키 하나만 다루는 훅 (로직은 lib/storage.js 위임) — v1.2
+// v1.2 변화:
+//   - recent / pickRecent / applyDrag / removedDefaults 전부 제거 (최근·제안 바 폐지, 드래그 폐지)
+//   - cycleChip = 파랑→빨강→검정 사이클 + 조 단위 자동 이동
+//   - selectAll / selectNone = 일괄 버튼 (순서 유지, state만 변경)
+// kinds(종류 체크)는 화면 상태이므로 App이 들고 있고 localStorage에 저장하지 않는다 (승인 3).
 import { useCallback, useState } from 'react'
-import { DEFAULT_MATERIALS } from '../data/materials.js'
+import { STATE_BLUE, STATE_OFF } from '../data/materials.js'
 import {
   addChipState,
   cycleChipState,
   loadState,
-  moveByDragState,
   persist,
-  pickRecentState,
   removeChipState,
+  setAllState,
 } from '../lib/storage.js'
 
 export function useFridge() {
-  const [data, setData] = useState(() => loadState(localStorage))
+  const [data, setData] = useState(() => loadState())
 
-  // x 삭제: 화면 + localStorage 제거 (검증 2)
+  // x 삭제: 화면 + localStorage 제거 (검증 10)
   const removeChip = useCallback((name) => {
-    setData((cur) => persist(localStorage, removeChipState(cur, name)))
+    setData((cur) => persist(removeChipState(cur, name)))
   }, [])
 
-  // + Enter 추가 (검증 3, 5)
+  // 조 끝 + Enter 추가 (검증 8, 9)
   const addChip = useCallback((rawName, zone) => {
     let result = 'added'
     setData((cur) => {
       const next = addChipState(cur, rawName, zone)
       result = next.result
       if (next.result !== 'added') return cur
-      return persist(localStorage, next.state)
+      return persist(next.state)
     })
     return result
   }, [])
 
-  // M2 검증 7: 칩 클릭 1회 = state 0 -> 1 -> 2 -> 0 순환, 즉시 저장
+  // 검증 2: 칩 클릭 1회 = 파랑 -> 빨강 -> 검정 -> 파랑 순환 (+ 조 단위 이동), 즉시 저장
   const cycleChip = useCallback((name) => {
-    setData((cur) => persist(localStorage, cycleChipState(cur, name)))
+    setData((cur) => persist(cycleChipState(cur, name)))
   }, [])
 
-  // M2 검증 6: 최근바 클릭 = 타이핑 없이 즉시 칩 생성 + recent 갱신
-  const pickRecent = useCallback((name) => {
-    setData((cur) => persist(localStorage, pickRecentState(cur, name).state))
+  // 검증 6: 모두 선택 = 빨강 포함 모든 칩 파랑, 순서 그대로
+  const selectAll = useCallback(() => {
+    setData((cur) => persist(setAllState(cur, STATE_BLUE)))
   }, [])
 
-  // M3 검증 13: DragEnd(active.id, over.id) -> 블록 모델로 새 순서 저장
-  //   칩→칩(조 경계 넘김), 칩→헤더(조 선두), 헤더→헤더(블록 통째) 모두 storage 규칙
-  const applyDrag = useCallback((activeId, overId) => {
-    setData((cur) => persist(localStorage, moveByDragState(cur, activeId, overId)))
+  // 검증 7: 모두 해제 = 빨강 포함 모든 칩 검정, 순서 그대로
+  const selectNone = useCallback(() => {
+    setData((cur) => persist(setAllState(cur, STATE_OFF)))
   }, [])
-
-  // 삭제된 기본 재료 (입력창 제안용)
-  const removedDefaults = DEFAULT_MATERIALS.filter(
-    (m) => !data.chips.some((c) => c.name === m.name)
-  ).map((m) => m.name)
 
   return {
     chips: data.chips,
-    recent: data.recent,
-    removedDefaults,
     addChip,
     removeChip,
     cycleChip,
-    pickRecent,
-    applyDrag,
+    selectAll,
+    selectNone,
   }
 }

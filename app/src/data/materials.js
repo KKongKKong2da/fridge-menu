@@ -1,17 +1,20 @@
 // ============================================================
-// data/materials.js
-// 명세서 3절 = 디폴트 재료 38종 (11 + 18 + 9)
-// 세그먼트('|')는 최초 배치 순서를 그대로 보존하기 위한 단위.
-// FLAT_MATERIALS = 조 1 → 2 → 3 순서로 이어붙인 38종 (첫 실행 생성 순서)
+// data/materials.js — 명세 v1.2 4절 (조 4개 고정)
+//   1 정육·달걀 11종 / 2 채소·과일 18종 / 3 통조림·소스 9종 / 4 기타 빈 조
+// ★ 카운트 표기: 리스트 합계 = 38종. 명세 제목의 "39종"(2·8절/검증1·19)은
+//   리스트(11+18+9)와 불일치 → 구현은 리스트 기준 38종 (2026-10-27 판정, 승인 대기).
+// 세그먼트('|')는 최초 배치 순서를 보존하기 위한 단위.
+// v1.2 변경: 조 2 이름 '과일·채소' → '채소·과일', 기타 조(4) 상수 신설(빈 조)
 // ============================================================
 
 export const ZONE_LABELS = {
   1: '정육·달걀',
-  2: '과일·채소',
+  2: '채소·과일',
   3: '통조림·소스',
+  4: '기타',
 }
 
-export const ZONE_ORDER = [1, 2, 3]
+export const ZONE_ORDER = [1, 2, 3, 4]
 
 export const ZONE_SEGMENTS = {
   1: [
@@ -34,6 +37,7 @@ export const ZONE_SEGMENTS = {
     ['카레', '하이라이스'],
     ['돈까스소스', '칠리소스', '참깨소스', '굴소스', '소갈비소스'],
   ],
+  4: [], // 기타 조 = 빈 조로 시작 (직접입력 전용)
 }
 
 // 조 이름 순서를 지킬 수 있도록 정렬 키를 붙임 (Object.keys 순서에 의존하지 않음)
@@ -43,4 +47,9 @@ export const DEFAULT_MATERIALS = ZONE_ORDER.flatMap((zone) =>
     .flat()
 )
 
-export const DEFAULT_COUNT = DEFAULT_MATERIALS.length // 38
+export const DEFAULT_COUNT = DEFAULT_MATERIALS.length // 11+18+9 = 38
+
+// 칩 상태 상수 (v1.2: 1 파랑 기본 / 2 빨강 임박+최우선 / 0 검정 후보제외)
+export const STATE_BLUE = 1
+export const STATE_RED = 2
+export const STATE_OFF = 0

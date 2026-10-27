@@ -1,179 +1,85 @@
-// M2: 조 3개 + +(기타) 인라인 입력 + 최근바 클릭 추가 + 칩 색 사이클
-// M3: DndContext 연결 (전역 SortableContext + 센서 3종) — 검증 13
-//     렌더 순서 = chips의 블록 순서(조 첫 등장 순서). 조 헤더 드래그로 조 순서도 바뀜.
-//     dragOver = 미리보기(화면만 재정렬), dragEnd = storage.moveByDragState로 영속.
-// M4: 추천 버튼 + ResultCard(프롬프트/복사/4발판) — 검증 8~12 (프롬프트는 영속 chips 기준 live 계산)
-import { useCallback, useState } from 'react'
-import {
-  DndContext,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
+// App.jsx — v1.2 (명세 9절 파일 구조 기준)
+// 화면: [모두 선택][모두 해제] → 조 4개(각 조 끝 ＋) → 종류 체크박스 5종 → [레시피 추천] → 결과 카드
+// v1.1 제거: DndContext/SortableContext/센서/preview, +(기타) 인라인 입력, RecentBar, 사용 카운트
+// v1.2 신설: 일괄 버튼 2종, KindPicker, 결과 카드는 3줄 + 복사/Google 2발판
+// kinds(종류)는 화면 상태 전용 — localStorage 비저장 (승인 3, 새로고침 시 미선택 복귀)
+import { useState } from 'react'
 import { useFridge } from './hooks/useFridge.js'
-import { ZONE_LABELS } from './data/materials.js'
-import { blocksFromFlat, moveByDragState, renderItems, SENSOR_OPTIONS } from './lib/storage.js'
-import { ZoneList } from './components/ZoneList.jsx'
-import { RecentBar } from './components/RecentBar.jsx'
-import { ResultCard } from './components/ResultCard.jsx'
+import { ZONE_LABELS, ZONE_ORDER } from './data/materials.js'
 import { buildPrompt } from './lib/prompt.js'
+import { ZoneList } from './components/ZoneList.jsx'
+import { KindPicker } from './components/KindPicker.jsx'
+import { ResultCard } from './components/ResultCard.jsx'
 
 export default function App() {
-  const { chips, recent, removedDefaults, addChip, removeChip, cycleChip, pickRecent, applyDrag } =
-    useFridge()
-  const [customOpen, setCustomOpen] = useState(false)
-  const [customText, setCustomText] = useState('')
-  const [preview, setPreview] = useState(null) // M3: 드래그 중 미리보기 전용 (드래그 아니면 null)
-  const [showCard, setShowCard] = useState(false) // M4 검증 8~9: 추천을 누른 뒤 결과 카드 표시
+  const { chips, addChip, removeChip, cycleChip, selectAll, selectNone } = useFridge()
+  const [kinds, setKinds] = useState([]) // 화면 상태만 (localStorage와 무관)
+  const [showCard, setShowCard] = useState(false)
 
-  const view = preview ?? chips // 화면에 띄울 칩 = 미리보기가 있으면 그것
+  const toggleKind = (kind) =>
+    setKinds((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
 
-  // 렌더 순서 = 블록 순서 (조 첫 등장 순서) + 빈 custom 헤더는 항상 마지막 (renderItems 규칙과 동일)
-  const zonesToRender = blocksFromFlat(view).map((b) => b.zone)
-  if (!zonesToRender.includes('custom')) zonesToRender.push('custom')
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: SENSOR_OPTIONS.mouse.activationConstraint }),
-    useSensor(TouchSensor, { activationConstraint: SENSOR_OPTIONS.touch.activationConstraint }),
-    useSensor(KeyboardSensor)
-  )
-
-  const submitCustom = () => {
-    const name = customText.trim()
-    if (name === '') return
-    addChip(name, 'custom') // +(기타) = zone "custom" 칩
-    setCustomText('')
-    setCustomOpen(false)
+  // 검증 11~17: 추천 클릭 시점의 chips+kinds로 3줄 생성 (검정만 있으면 null → 빈 메시지)
+  const handleRecommend = () => {
+    setShowCard(true)
   }
-
-  // 검증 13 (dragEnd): active/over를 storage 블록 규칙에 위임 -> 순서 영속 (검증 14: LS 복원)
-  const handleDragStart = useCallback(
-    () => {
-      setPreview((cur) => cur ?? chips) // 드래그 시작 시점 = 현재 영속 순서를 미리보기 기준으로
-    },
-    [chips]
-  )
-
-  const handleDragOver = useCallback(({ active, over }) => {
-    if (!over || active.id === over.id) return
-    setPreview((cur) => {
-      const base = cur ?? chips
-      const next = moveByDragState({ chips: base, recent: [] }, active.id, over.id).chips
-      return next === base ? cur : next
-    })
-  }, [chips])
-
-  const handleDragEnd = useCallback(
-    ({ active, over }) => {
-      setPreview(null)
-      if (over && active.id !== over.id) applyDrag(active.id, over.id)
-    },
-    [applyDrag]
-  )
-
-  const handleDragCancel = useCallback(() => setPreview(null), [])
 
   return (
     <div className="app">
       <header className="app__header">
         <h1 className="app__title">냉장고 재료 · 메뉴 추천</h1>
-        <p className="app__hint">
-          칩 클릭 = 검정 → 파랑(쓸 재료) → 빨강(임박+꼭 쓸) · ×로 삭제 · ＋로 추가 · 길게 눌러 드래그
-          정렬 (PC 6px / 모바일 0.45초)
+        {/* 검증 2 + 명세 3절 표: 한 줄 범례 (승인 4) */}
+        <p className="legend">
+          <span className="legend__item">
+            <span className="chip chip--s1 chip--mini">파랑</span> 쓸 재료
+          </span>
+          <span className="legend__item">
+            <span className="chip chip--s2 chip--mini">빨강</span> 임박+최우선
+          </span>
+          <span className="legend__item">
+            <span className="chip chip--s0 chip--mini">검정</span> 후보 제외
+          </span>
         </p>
-        <div className="legend">
-          <span className="chip chip--s0 legend__chip">검정: 보유 후보</span>
-          <span className="chip chip--s1 legend__chip">파랑: 주역 재료</span>
-          <span className="chip chip--s2 legend__chip">빨강: 임박+필수</span>
+        <p className="app__hint">
+          칩 클릭 = 파랑 → 빨강 → 검정 순환 · 빨강은 그 조 맨 앞, 검정은 그 조 맨 뒤로 이동
+        </p>
+
+        {/* 명세 3절 일괄 버튼: 조 목록 위 한 줄, 화면 우측 */}
+        <div className="app__batch">
+          <button type="button" className="batch-btn" onClick={selectAll}>
+            모두 선택
+          </button>
+          <button type="button" className="batch-btn" onClick={selectNone}>
+            모두 해제
+          </button>
         </div>
       </header>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-      >
-        <main className="app__zones">
-          <SortableContext items={renderItems(view)} strategy={rectSortingStrategy}>
-            {zonesToRender.map((zone) => (
-              <ZoneList
-                key={zone}
-                zone={zone}
-                label={zone === 'custom' ? '기타' : ZONE_LABELS[zone]}
-                chips={view}
-                recent={recent}
-                removedDefaults={removedDefaults}
-                onAdd={addChip}
-                onRemove={removeChip}
-                onCycle={cycleChip}
-              />
-            ))}
-          </SortableContext>
-
-          <RecentBar
-            recent={recent}
-            onOpenCustom={() => setCustomOpen((v) => !v)}
-            onPick={pickRecent}
+      <main className="app__zones">
+        {ZONE_ORDER.map((zone) => (
+          <ZoneList
+            key={zone}
+            zone={zone}
+            label={ZONE_LABELS[zone]}
+            chips={chips}
+            onAdd={addChip}
+            onRemove={removeChip}
+            onCycle={cycleChip}
           />
+        ))}
+      </main>
 
-          {customOpen && (
-            <div className="zone__input zone__input--custom">
-              <input
-                type="text"
-                className="zone__input-box"
-                placeholder="기타 재료 이름 (Enter) — 예: 라면, 우유, 냉동만두"
-                value={customText}
-                autoFocus
-                onChange={(e) => setCustomText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    submitCustom()
-                  }
-                  if (e.key === 'Escape') {
-                    setCustomOpen(false)
-                    setCustomText('')
-                  }
-                }}
-              />
-              {recent.length + removedDefaults.length > 0 && (
-                <div className="zone__suggest">
-                  <span className="zone__suggest-label">제안:</span>
-                  {[...recent, ...removedDefaults].map((name) => (
-                    <span key={name} className="suggest-chip">{name}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </main>
-      </DndContext>
-
-      {/* M4: [레시피 추천] 버튼 + 결과 카드 (명세서 8절 배치: 체크 영역 아래) */}
+      {/* 명세 5절: 종류 체크박스 → 레시피 추천 버튼 바로 위 */}
       <section className="app__recommend">
-        <button
-          type="button"
-          className="recommend-btn"
-          onClick={() => setShowCard(true)}
-        >
+        <KindPicker kinds={kinds} onToggle={toggleKind} />
+        <button type="button" className="recommend-btn" onClick={handleRecommend}>
           레시피 추천
         </button>
-        {/* 검증 8: 파랑·빨강 0개면 ResultCard가 빈 메시지 표시 / 검증 9~12 */}
-        {showCard && <ResultCard prompt={buildPrompt(chips)} />}
+        {showCard && <ResultCard prompt={buildPrompt(chips, kinds)} />}
       </section>
 
       <footer className="app__footer">
-        <p className="app__footer-note">
-          칩 {chips.length}개 · 파랑 {chips.filter((c) => c.state === 1).length} ·
-          빨강 {chips.filter((c) => c.state === 2).length} · 현재 M4 (배포 M5)
-        </p>
+        <p className="app__footer-note">v1.2 · 조 단위 자동 이동 · 드래그/최근바 폐기</p>
       </footer>
     </div>
   )
