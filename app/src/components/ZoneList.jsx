@@ -1,6 +1,8 @@
-// ZoneList.jsx — v1.5.2
+// ZoneList.jsx — v1.6
+// v1.6: Chip에 longPressRef 전달 (드래그 직후 색·× 자동 발동 차단 — App의 useLongPressDrag stateRef).
+// v1.6 회색 통일: ▼/▲ 접기 버튼 = .zone__fold-btn--gray (styles.css --gray 단일 변수 참조).
 // v1.5.2 라벨: 텍스트 제거, ▼/▲ 기호만 (aria-label·title에는 '펼치기/접기' 유지).
-//   크기·테두리·색상 = 조 끝 ＋ 버튼과 동일 (padding 6px 11px · font 15px · line-height 1).
+//   크기 = 조 끝 ＋ 버튼과 동일 (padding 6px 11px · font 15px · line-height 1). 색만 회색으로 변경
 //   (사용자 요청 ③: 모두 선택/해제보다 세로가 커 보이는 것 해소 + 기호만 실험)
 // 조 1개 = 헤더(번호 + 이름 + (n/m) + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
 // v1.5.1 수정:
@@ -21,7 +23,7 @@ import { Chip } from './Chip.jsx'
 const MAX_HEIGHT_2ROWS = 74
 const OVERFLOW_EPSILON = 4
 
-export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen }) {
+export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen, longPressRef }) {
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const [qualifies, setQualifies] = useState(false)
@@ -78,7 +80,7 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
           strategy={rectSortingStrategy}
         >
           {zoneChips.map((c) => (
-            <Chip key={c.name} chip={c} onRemove={onRemove} onCycle={onCycle} />
+            <Chip key={c.name} chip={c} onRemove={onRemove} onCycle={onCycle} longPressRef={longPressRef} />
           ))}
         </SortableContext>
       </div>
@@ -87,7 +89,7 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
         <div className="zone__fold">
           <button
             type="button"
-            className="zone__fold-btn"
+            className="zone__fold-btn zone__fold-btn--gray"
             aria-label={open ? '접기' : '펼치기'}
             title={open ? '접기' : '펼치기'}
             onClick={onToggleOpen}

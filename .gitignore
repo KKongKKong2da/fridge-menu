@@ -2,3 +2,5 @@ node_modules/
 dist/
 .DS_Store
 npm-debug.log*
+# v1.6: 실험 격리 폴더 (dnd-kit 사본 등) — 커밋 제외
+x/

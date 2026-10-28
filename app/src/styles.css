@@ -1,5 +1,9 @@
 /* ============================================================
-   styles.css — 냉장고 재료 메뉴 추천 (v1.5.1, 단일 CSS 파일)
+   styles.css — 냉장고 재료 메뉴 추천 (v1.6, 단일 CSS 파일)
+   v1.6 회색 통일 (명세 2절): 회색은 단일 변수 --gray 한 값(연한 회색 #9ca3af)만 사용.
+     --off / --off-deep 2종 폐기 → 회색 칩(chip--s0)·펼침▼·접기▲(.zone__fold-btn--gray)·
+     모두 해제(batch-btn--off)가 모두 --gray를 참조 (한 곳에서 정의, 모두 참조).
+     --muted(문구 작은 회색)는 문구 색이라 회색 4종 대상 아님.
    칩 = 솔리드 스타일 (명세 1절)
      배경: 상태색 100% 채움 (opacity 1) / 테두리: 없음 / 글자: 흰색 #fff
      chip--s1 파랑 #2563eb = 쓸 재료(기본)
@@ -25,8 +29,8 @@
    ============================================================ */
 :root {
   --bg: #f6f7f9; --card: #ffffff; --ink: #1d1f23; --muted: #6b7280; --line: #e3e6ea;
-  --blue: #2563eb; --red: #dc2626; --off: #9ca3af; /* v1.5.2: 칩 회색 연한화 (gray-400, 기존 #6b7280) */
-  --blue-deep: #1e40af; --red-deep: #991b1b; --off-deep: #6b7280; /* v1.5.2: 회색 hover = 기존 칩색 gray-500 */
+  --blue: #2563eb; --red: #dc2626; --blue-deep: #1e40af; --red-deep: #991b1b;
+  --gray: #9ca3af; /* v1.6: 회색 단일 값 (연한 회색) — 칩·▼▲·모두 해제 통합 참조 */
   --accent: #2563eb; --radius: 10px;
 }
 
@@ -67,8 +71,8 @@ body {
   border-radius: 8px; font-size: 13px; font-weight: 700; padding: 7px 14px; cursor: pointer;
 }
 .batch-btn:active { transform: translateY(1px); }
-/* v1.5.2 ④ 모두 해제 = 회색 (해제 결과 색을 버튼에 반영): 채움 --off-deep #6b7280 + 흰 글자 */
-.batch-btn--off, .batch-btn--off:active { background: var(--off-deep); border-color: var(--off-deep); color: #fff; }
+/* v1.6 ② 모두 해제 = 회색 단일 값 (해제 결과 색을 버튼에 반영): 채움 --gray + 흰 글자 */
+.batch-btn--off, .batch-btn--off:active { background: var(--gray); border-color: var(--gray); color: #fff; }
 
 /* ---------- 초기화 안내 (명세 3절) ---------- */
 .migration {
@@ -110,6 +114,9 @@ body {
   border-radius: 8px; font-size: 15px; line-height: 1; padding: 6px 11px; cursor: pointer;
 }
 .zone__fold-btn:active { transform: translateY(1px); }
+/* v1.6 회색 통일: 펼침▼·접기▲ = --gray (연한 회색) — 색만 회색, 크기는 ＋ 버튼과 동일 */
+.zone__fold-btn--gray { border-color: var(--gray); color: var(--gray); }
+.zone__fold-btn--gray:active { background: var(--gray); border-color: var(--gray); color: #fff; }
 
 /* ---------- 칩 (v1.4 솔리드: 채움 100% · 테두리 없음 · 흰 글자) ---------- */
 .chip {
@@ -131,14 +138,14 @@ body {
   color: #fff; opacity: 0.75; font-weight: 700;
 }
 .chip__x:hover { opacity: 1; }
-/* x hover = 배경과 동일 계열 어두운 색 (명세 1절) */
+/* x hover = 배경과 동일 계열 어두운 색 (명세 1절) — v1.6: 회색은 단일 값이라 chip--s0 hover는 --gray 위 opacity 1 */
 .chip--s1 .chip__x:hover { background: var(--blue-deep); }
 .chip--s2 .chip__x:hover { background: var(--red-deep); }
-.chip--s0 .chip__x:hover { background: var(--off-deep); }
+.chip--s0 .chip__x:hover { background: var(--gray); }
 /* 상태색 100% 단단 채움, 테두리 없음 */
 .chip--s1 { background: var(--blue); }
 .chip--s2 { background: var(--red); }
-.chip--s0 { background: var(--off); }
+.chip--s0 { background: var(--gray); } /* v1.6: 회색 칩 = 단일 --gray (상태 값 0 유지) */
 /* 드래그 중: 스케일 1.05(JS transform) + 그림자(CSS) + z-index 50(JS) (명세 1절) */
 .chip--dragging { box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35); }
 

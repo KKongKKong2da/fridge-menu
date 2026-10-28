@@ -1,5 +1,6 @@
-// poll-deploy.mjs — v1.5: Actions run 1개 감시 → success 후 라이브 3종(HTML/JS/CSS) 200 확인
-// 실행: node verify/poll-deploy.mjs (GH_TOKEN 환경변수 주입 필요)
+// poll-deploy.mjs — v1.6: Actions run 1개 감시 → success 후 라이브 3종(HTML/JS/CSS) 200 확인
+// 실행: node verify/poll-deploy.mjs <커밋sha12자> (GH_TOKEN 환경변수 주입 필요 — 기본값 065d200은 1.5 감시용, v1.6는 인자 필수)
+// 체크 기준: CSS #9ca3af (v1.6 --gray 단일 값으로 유지), JS fridge-chips:v4 (v1.6 스키마 bump 없음 — 유지)
 const owner = 'KKongKKong2da', repo = 'fridge-menu', sha = process.argv[2] ?? '065d200'
 const token = process.env.GH_TOKEN
 if (!token) { console.log('NO_TOKEN'); process.exit(1) }

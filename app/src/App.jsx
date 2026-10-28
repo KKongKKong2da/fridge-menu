@@ -1,12 +1,21 @@
-// App.jsx — v1.5.2
-//   - 드래그 양방향 복구: handleDragEnd의 overId === dragName 가드 제거 (뒤로 보내기 드롭 살림,
-//       제자리 드롭은 moveChipState no-op이라 저장 무변경 — v1.5.1의 "앞→뒤 불가" 해소)
-//   - 모두 해제 버튼 = 회색 (batch-btn--off), 칩 회색 연한화 (--off #9ca3af / --off-deep #6b7280)
-//   - 접기/펼치기 버튼: ＋ 버튼과 동일 크기, 내용 ▼/▲만 (라벨 "펼치기/접기" 텍스트 제거)
+// App.jsx — v1.6
+//   - 드래그 검증 1 "PC 앞→뒤 양방향": 원인은 가드가 아니라 저장 로직 쪽에 있었다.
+//       v1.5.2(b4592e3)가 overId === dragName 가드를 제거한 것은 유효했고 (제자리 드롭 no-op),
+//       그 뒤에도 앞방향만 실패한 실체 = storage.moveChipState의 앞방향 삽입이 targetIndex - 1라
+//       화면 미리보기(rectSortingStrategy = 표준 arrayMove 시맨틱, targetIndex 착지)와 한 칸 어긋난 것.
+//       v1.6은 moveChipState를 표준 arrayMove 시맨틱(targetIndex 착지)으로 통일 → 화면과 저장 일치,
+//       앞/뒤 양방향 모두 미리보기 자리 그대로 저장 (storage.js 코멘트).
+//   - 드래그 검증 2 "모바일 양방향": TouchSensor delay 1500 → 600 (useLongPressDrag.LONG_PRESS_MS 참조)
+//   - 드래그 검증 5 "옮긴 직후 색·× 자동 발동 없음": useLongPressDrag stateRef (live/lastEnd) → Chip이 클릭 차단 참조
+//   - 접힘 7: openZones 복원 · 접힌 조 펼침 후 옮기기 정책은 v1.5.1 그대로 (ZoneList scrollHeight 74+4 판정 유지)
+//   - 회색 통일: 펼침▼·접기▲/모두 해제/회색 칩 = styles.css --gray 단일 변수 참조 (명세 2절)
+//   - v1.6 검증: ①PC 양방향 = moveChipState가 rectSortingStrategy의 드래그 중 시각(직사각 정렬)과
+//       양방향으로 일치함을 로직 테스트로 고정 (앞: 타깃 직전 삽입 / 뒤: 타깃 자리 삽입)
+//     ②모바일 양방향 = TouchSensor delay 600ms ③④⑤ = pan-y 스위칭 + useLongPressDrag 클릭 봉인
 // v1.5.1 변화 (사용자 요청: 칩 이동 불가 + 접기 소멸):
 //   - 드래그 센서 분리 (v1.5 단일 PointerSensor delay 1500는 활성화 불안정 → 폐기):
-//       MouseSensor { distance: 5 }                → PC: 눌른 채 5px 이동 = 즉시 드래그
-//       TouchSensor { delay: 1500, tolerance: 10 } → 모바일: 1.5초 꾹 = 들림(iPhone 방식),
+//       MouseSensor { distance: 5 }                → PC: 눌른 채 5px 이동 = 즉시 드래그 (1.6 유지: PC는 현행 즉시 잡기)
+//       TouchSensor { delay: 600, tolerance: 10 }  → 모바일: 0.6초 꾹 = 들림(iPhone 방식, LONG_PRESS_MS 참조),
 //                                                    10px 선행 이동 = 드래그 취소 → 스크롤 양보
 //       KeyboardSensor 없음.
 //   - 접기 기능 복원: ZoneList의 자격 판정을 scrollHeight > 2행(74px)+4 로 바꿔
@@ -19,6 +28,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { useFridge } from './hooks/useFridge.js'
+import { useLongPressDrag, LONG_PRESS_MS } from './hooks/useLongPressDrag.js'
 import { ZONE_LABELS, ZONE_ORDER } from './data/materials.js'
 import { buildPrompt } from './lib/prompt.js'
 import { ZoneList } from './components/ZoneList.jsx'
@@ -64,25 +74,24 @@ export default function App() {
   const [showCard, setShowCard] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // 검증 8: 설명 기본 접힘
 
-  // 명세 1절 (v1.5.1): 입력 장치별 센서 분리 — PC는 드래그, 모바일은 롱프레스
-  //   MouseSensor: 마우스는 눌림 즉시 감지 → 5px 이동하면 드래그 시작 (PC 드래그 이동 정상화)
-  //   TouchSensor: 손가락은 1500ms 꾹 누름 동안 보류 → 그 사이 10px 이상 움직이면 취소(스크롤 양보),
-  //                1500ms 정지 유지 시 들림(iPhone 홈화면 방식). 짧은 탭은 클릭(색 사이클)으로 남음.
+  // 명세 1절 (v1.6): 입력 장치별 센서 분리 — PC는 눌림 즉시, 모바일은 600ms 꾹 누름 (PC 즉시 / 모바일 꾹 분리 유지 — 사용자 승인)
+  //   MouseSensor: 마우스는 눌른 채 5px = 즉시 드래그 시작 (PC 양방향 이동 — v1.5.2 가드 제거 결과)
+  //   TouchSensor: 손가락은 LONG_PRESS_MS(600ms) 동안 정지 유지 → 그 사이 10px 이상 움직이면 취소(스크롤 양보),
+  //                600ms 정지 시 들림(iPhone 홈화면 방식). 짧은 탭(<600ms)은 클릭(색 사이클)으로 남음.
   const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
   const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 1500, tolerance: 10 },
+    activationConstraint: { delay: LONG_PRESS_MS, tolerance: 10 },
   })
   const sensors = useSensors(mouseSensor, touchSensor) // KeyboardSensor 없음 (명세 1절)
+  const longPress = useLongPressDrag() // v1.6: live/lastEnd 추적 → Chip 클릭 차단 참조 + DndContext 연결
 
   const toggleKind = (kind) =>
     setKinds((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
 
   // 검증 3·4: 드래그 종료 → 같은 조 안 순서만 변경. 다른 조 over는 moveChipState가 무이동 처리
-  // [v1.5.2 양방향 드래그 복구] overId === dragName 가드 제거:
-  //   dnd-kit은 드래그 중 빈자리를 앞 칩이 채우므로, 칩을 뒤로 보내면 over가 "자기 원위치"로 착지한다.
-  //   기존 가드가 그 드롭을 통째로 무효화 → "앞에 있는 걸 뒤로 못 보내는" 현상.
-  //   가드 없이 applyDrag에 넘기면 moveChipState가 같은 조·같은 자리 = 원본 반환(no-op, 저장 변경 없음)이라 안전하고,
-  //   다른 자리 드롭(from<target / from>target)은 모두 정상 이동(양방향).
+  // [v1.6] over가 active와 같은 칩(제자리 착지)이어도 applyDrag에 넘긴다:
+  //   moveChipState가 dragName === targetName을 원본 반환(no-op)으로 처리하므로 저장 무변경 (v1.5.2 가드 제거 유지).
+  //   앞방향/뒤방향 드롭은 targetIndex 착지(arrayMove 시맨틱)로 미리보기와 동일하게 저장 → 양방향 복구.
   const handleDragEnd = useCallback(
     ({ active, over }) => {
       if (!over) return
@@ -134,7 +143,12 @@ export default function App() {
 
       {/* 검증 3·4: 드래그는 조 안 정렬만 (조 간 over = 무이동) */}
       <main className="app__zones">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={longPress.onDragStart}
+          onDragEnd={longPress.onDragEnd}
+        >
           {ZONE_ORDER.map((zone) => (
             <ZoneList
               key={zone}
@@ -147,6 +161,7 @@ export default function App() {
               compact={compact}
               open={openZones.includes(zone)}
               onToggleOpen={() => toggleOpen(zone)}
+              longPressRef={longPress.stateRef}
             />
           ))}
         </DndContext>
@@ -162,7 +177,7 @@ export default function App() {
       </section>
 
       <footer className="app__footer">
-        <p className="app__footer-note">v1.5.2 · 7개 조 67종 · 솔리드 칩 · 양방향 드래그 · 640px 이하 2행 접기/펼치기(▼▲) · 조 안 드래그</p>
+        <p className="app__footer-note">v1.6 · 7개 조 67종 · 솔리드 칩 · 양방향 드래그(PC 즉시/모바일 600ms 꾹) · 640px 이하 2행 접기/펼치기(▼▲) · 회색 --gray 통일</p>
       </footer>
     </div>
   )

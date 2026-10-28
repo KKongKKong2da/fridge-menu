@@ -165,7 +165,7 @@ export function addChipState(state, rawName, zone) {
   return { result: 'added', state: { chips: out } }
 }
 
-// ---------- 드래그 정렬 (검증 3·4) — v1.4: 조 안 정렬만 ----------
+// ---------- 드래그 정렬 (검증 3·4) — v1.4: 조 안 정렬만 / v1.6: 착지 위치 = 화면 미리보기와 일치 ----------
 // 조 번호 순서 + 조 안 화면 순서 = 플랫 인덱스의 기준 순서
 function flatOrder(chips) {
   const out = []
@@ -174,7 +174,15 @@ function flatOrder(chips) {
 }
 
 // 칩을 같은 조 안의 targetName 자리로 옮기는 단일 구현.
-// - targetName이 같은 조에 있으면: 그 칩 바로 앞(앞에서 드래그 시 뒤)에 삽입. 조 안 순서만 변경.
+// [v1.6 핵심 수정 — PC "앞→뒤 실패"의 실체]
+//   v1.5.2까지 앞방향(앞 칩을 뒤로 보내기) 삽입을 targetIndex - 1로 두어,
+//   드래그 중 화면 미리보기(직사각 정렬 rectSortingStrategy가 보여주는 착지 = targetIndex 자리,
+//   표준 arrayMove 시맨틱)와 저장 결과가 한 칸 어긋났다 (A→D 미리보기 [B C D A] / 저장 [B C A D]).
+//   놓는 순간 미리보기 자리에서 한 칸 앞으로 튕겨 "앞으로 못 옮긴다"로 보였다.
+//   → v1.6은 화면과 저장을 표준 arrayMove 하나로 일치시킨다:
+//     targetIndex = over(타깃)의 원 인덱스. 칩을 빼고(splice from) targetIndex 자리에 삽입.
+//     앞방향 [A B C D] A→D = [B C D A] (D를 완전히 넘김) / 뒤방향 D→A = [D A B C] (A 앞에 착지).
+//   제자리 드롭(active=over)은 dnd-kit이 over를 타깃 인덱스로 착지시키므로 저장도 same-index = 원본 그대로.
 // - targetName이 다른 조에 있으면 (검증 4): 이동 없음 — 원본 배열 그대로 반환 (zone 값 유지).
 // - targetName null (v1.3 빈 조 드롭 경로)도 더 이상 이동 없음.
 export function moveChipState(state, dragName, targetName) {
@@ -186,8 +194,7 @@ export function moveChipState(state, dragName, targetName) {
   if (ordered[fromIndex].zone !== ordered[targetIndex].zone) return state // 조 간 이동 불가
   const moved = [...ordered]
   const [chip] = moved.splice(fromIndex, 1)
-  const insertAt = fromIndex < targetIndex ? targetIndex - 1 : targetIndex
-  moved.splice(insertAt, 0, chip)
+  moved.splice(targetIndex, 0, chip) // arrayMove 시맨틱: targetIndex 자리에 착지 (화면 미리보기와 동일)
   return { chips: moved }
 }
 
