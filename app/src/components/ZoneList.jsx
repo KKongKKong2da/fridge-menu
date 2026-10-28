@@ -14,7 +14,9 @@
 //       자격이 유지되어 접기 ▲ 버튼이 계속 보인다. 접힌 상태도 같은 값 → 펼치기 ▼ 버튼.
 //   - 라벨 텍스트는 v1.5.1까지 "펼치기 ▼ / 접기 ▲" + 44×44px → v1.5.2에서 기호만으로 교체 (위 참조)
 //   - (n/m) 헤더 카운트 유지: n = 파랑+빨강(state 1·2), m = 전체. 파생 계산(저장 안 함), 즉시 갱신.
-//   - SortableContext items = 조의 칩 전량. 접힌 조는 3행째 칩이 화면에 안 보이므로 펼치고 옮기는 정책 (v1.5 확정 유지).
+//   - SortableContext items = App의 스냅샷(v1.6.1): 드롭 확정 시점에만 갱신 → 미리보기 자리 고정
+//     (items가 prop chips 순서를 직접 따라가면 드롭 직전 transform이 원본으로 복원되어 칩이 옛 자리로 되돌아감).
+//     안전복귀: items와 chips 이름 집합이 어긋나면 chips 기준 items로 즉시 복귀. 접힌 조는 3행째 미표시 → 펼치고 옮기기 정책 (v1.5 유지).
 import { useEffect, useRef, useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Chip } from './Chip.jsx'
@@ -23,13 +25,18 @@ import { Chip } from './Chip.jsx'
 const MAX_HEIGHT_2ROWS = 74
 const OVERFLOW_EPSILON = 4
 
-export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact, open, onToggleOpen, longPressRef }) {
+export function ZoneList({ zone, label, chips, items, onAdd, onRemove, onCycle, compact, open, onToggleOpen, longPressRef }) {
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const [qualifies, setQualifies] = useState(false)
   const chipsRef = useRef(null)
 
   const zoneChips = chips.filter((c) => c.zone === zone)
+  // v1.6.1: dnd-kit items는 App 스냅샷(순서 기준)만 사용 — chips와 이름 집합이 어긋나면 chips로 안전 복귀
+  const safeItems =
+    items && items.length === zoneChips.length && zoneChips.every((c) => items.includes(c.name))
+      ? items
+      : zoneChips.map((c) => c.name)
   const selectedCount = zoneChips.filter((c) => c.state === 1 || c.state === 2).length
   const collapsed = compact && !open
   const showToggle = compact && qualifies // 펼친 조도 qualifies 유지 → 접기 ▲ 계속 표시
@@ -76,12 +83,13 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
       >
         <SortableContext
           id={`zone-${zone}`}
-          items={zoneChips.map((c) => c.name)}
+          items={safeItems}
           strategy={rectSortingStrategy}
         >
-          {zoneChips.map((c) => (
-            <Chip key={c.name} chip={c} onRemove={onRemove} onCycle={onCycle} longPressRef={longPressRef} />
-          ))}
+          {safeItems.map((name) => {
+            const c = zoneChips.find((x) => x.name === name)
+            return c ? <Chip key={c.name} chip={c} onRemove={onRemove} onCycle={onCycle} longPressRef={longPressRef} /> : null
+          })}
         </SortableContext>
       </div>
 

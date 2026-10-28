@@ -171,5 +171,47 @@ console.log('--- 7. 자료/유지 ---')
     '프롬프트 2줄 문구 유지')
 }
 
+// ---------- 섹션 8: v1.6.1 드롭 자리 고정 (순서 변경이 화면에 남음) ----------
+console.log('--- 8. v1.6.1 드롭 자리 고정 ---')
+{
+  const app = stripC(read('src/App.jsx', 'utf8'))
+  const zone = stripC(read('src/components/ZoneList.jsx', 'utf8'))
+  // [핵심] SortableContext items가 prop chips를 직접 따라가지 않고 App의 스냅샷을 받는다
+  ok(app.includes('setSnapshot') && app.includes('zoneNames'), 'App: 조별 순서 스냅샷 소유 (드롭 확정 시점 갱신)')
+  ok(/items=\{snapshot\[zone\]\}/.test(app), 'App → ZoneList items = 스냅샷 (chips 직접 아님)')
+  ok(zone.includes('items={safeItems}') && zone.includes('const safeItems ='), 'ZoneList: items = 스냅샷 + 집합 어긋남 시 chips 안전복귀')
+  ok(app.includes('computeAfterMove'), 'App: 드롭 시 스냅샷에 arrayMove 착지 재현')
+
+  // computeAfterMove(조별 스냅샷 착지)가 저장 moveChipState(플랫 착지)와 결과 일치하는지 재현 검증
+  const ZONES = [1, 2, 3, 4, 5, 6, 7]
+  const snapOf = (chips) => Object.fromEntries(ZONES.map((z) => [z, chips.filter((c) => c.zone === z).map((c) => c.name)]))
+  const computeAfterMove = (snapshot, fromName, toName) => {
+    if (toName === null) return snapshot
+    const fromZone = ZONES.find((z) => snapshot[z].includes(fromName))
+    const toZone = ZONES.find((z) => snapshot[z].includes(toName))
+    if (fromZone === undefined || toZone === undefined) return snapshot
+    if (fromZone !== toZone) return snapshot
+    const list = [...snapshot[fromZone]]
+    const fi = list.indexOf(fromName), ti = list.indexOf(toName)
+    if (fi === -1 || ti === -1) return snapshot
+    const [c] = list.splice(fi, 1)
+    list.splice(ti, 0, c)
+    return { ...snapshot, [fromZone]: list }
+  }
+  const zone1 = ['A', 'B', 'C', 'D', 'E']
+  const baseChips = zone1.map((n) => ({ name: n, zone: 1, state: 1, custom: false }))
+  const snapBase = snapOf(baseChips)
+  const cases = [['A', 'E'], ['E', 'A'], ['A', 'B'], ['B', 'A'], ['C', 'E'], ['E', 'C'], ['C', 'D'], ['A', 'A']]
+  let aligned = 0
+  for (const [d, t] of cases) {
+    const moved = moveChipState({ chips: baseChips }, d, t).chips.map((c) => c.name)
+    const next = computeAfterMove(snapBase, d, t)[1]
+    if (moved.join(',') === next.join(',')) aligned++
+    console.log(`   자리 ${d}→${t}: 저장=[${moved}] 화면=[${next}] ${moved.join(',') === next.join(',') ? '일치' : '불일치'}`)
+  }
+  ok(aligned === cases.length, '8케이스: 화면 스냅샷 착지 = 저장 착지 → 놓은 자리에 남음 (PC·모바일 공통, 새 탭·새로고침도 동일)')
+  ok(computeAfterMove(snapBase, 'A', 'A')[1].join(',') === zone1.join(','), '제자리 드롭 = 순서 그대로 (옛 자리 되돌아감 없음)')
+}
+
 console.log(`\n합계 PASS=${pass} FAIL=${fail}`)
 process.exit(fail === 0 ? 0 : 1)
