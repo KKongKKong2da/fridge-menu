@@ -59,10 +59,10 @@ ok(mh >= 72 && mh <= 78, `4-1 2행 높이 실측 상수 ${mh}px (명세 72~78 �
 ok(/scrollHeight > MAX_HEIGHT_2ROWS \+ OVERFLOW_EPSILON/.test(zoneCode) && /OVERFLOW_EPSILON = 4/.test(zoneCode) && /MAX_HEIGHT_2ROWS = 74/.test(zoneCode), '4-2 자격 판정 scrollHeight > 74 + 4 (콘텐츠 높이 → 펼침 후에도 접기 버튼 유지)')
 ok(/ResizeObserver/.test(zoneSrc), '4-3 ResizeObserver 재측정')
 ok(/maxHeight: MAX_HEIGHT_2ROWS/.test(zoneSrc) && /overflow: 'hidden'/.test(zoneSrc), '4-4 max-height 2행 + overflow hidden')
-ok(/펼치기 ▼/.test(zoneCode) && /접기 ▲/.test(zoneCode) && !/const COLLAPSE_LIMIT/.test(zoneCode), '4-5 라벨 펼치기 ▼/접기 ▲ (숫자·개수 상수 폐지)')
+ok(/aria-label=\{open \? '접기' : '펼치기'\}/.test(zoneCode) && !/const COLLAPSE_LIMIT/.test(zoneCode), '4-5 버튼 aria-label 펼치기/접기 유지 · 개수 상수 COLLAPSE_LIMIT 폐지')
 ok(/items=\{zoneChips\.map/.test(zoneSrc), '4-6 SortableContext = 조 칩 전량 (접힌 조 3행째도 드래그 대상)')
 const cssSrc = read('src/styles.css', 'utf8')
-ok(/min-width: 44px; height: 44px/.test(cssSrc), '4-7 펼침 버튼 터치 타깃 44×44px')
+ok(!/height: 44px/.test(cssSrc) && /zone__fold-btn \{[^}]*padding: 6px 11px/.test(cssSrc), '4-7 접기 버튼: 44×44 폐기 · zone__add와 동일 padding 6px 11px (v1.5.2 ③)')
 const restored = persistOpenZones([2, 5])
 ok(JSON.stringify(loadOpenZones()) === JSON.stringify(restored), '4-8 fridge-open-zones 저장→복원 왕복')
 
@@ -109,6 +109,26 @@ ok(!/(ResultCard|prompt)\.jsx?/.test(appSrc.replace(/import[\s\S]*?\n/g, '')), '
 // ── 8) 저장 스키마 무변경 (v4 유지) ──
 const storageSrc = read('src/lib/storage.js', 'utf8')
 ok(/STORAGE_KEY = 'fridge-chips:v4'/.test(storageSrc), '8-1 fridge-chips:v4 그대로')
+
+// ── 9) v1.5.2 5건 ──
+// ① 양방향 드래그: App 가드 제거 + moveChipState 양방향 왕복
+ok(!/overId === dragName/.test(appCode) && !/if \(overId === dragName\) return/.test(appCode), '9-1 App handleDragEnd 자기 자신 가드 제거 (뒤로 드롭 살림)')
+const z9 = st5.chips.filter((c) => c.zone === 1).map((c) => c.name)
+const first = z9[0], second = z9[1], last = z9[z9.length - 1]
+const mvBack = moveChipState(persist({ chips: st5.chips }), first, last).chips.map((c) => c.name) // 0번 → 뒤로
+ok(mvBack[0] === second && mvBack.indexOf(first) > mvBack.indexOf(second), `9-2a 뒤로 보내기: ${first} index0 → index${mvBack.indexOf(first)} (from<target 경로))`)
+const mvFwd = moveChipState(persist({ chips: st5.chips }), last, first).chips.map((c) => c.name) // 마지막 → 앞으로
+ok(mvFwd[0] === last, `9-2b 앞으로 오기: ${last} index${z9.length - 1} → index0 (from>target 경로)`)
+const base9 = persist({ chips: st5.chips })
+const noop = moveChipState(base9, first, first)
+ok(noop === base9 && noop.chips === base9.chips, '9-2c 제자리 드롭(자기 자신 target) = 같은 객체 반환 no-op → 저장 무변경 안전')
+// ④ 모두 해제 버튼 회색 클래스
+ok(/batch-btn batch-btn--off/.test(appCode) && /\.batch-btn--off[^{]*\{[^}]*background: var\(--off-deep\)/.test(cssSrc), '9-3 모두 해제 = batch-btn--off (배경 --off-deep 회색 + 흰 글자)')
+// ⑤ 칩 회색 연한화
+ok(/--off: #9ca3af/.test(cssSrc) && /--off-deep: #6b7280/.test(cssSrc), '9-4 칩 회색 --off #9ca3af (gray-400) · hover #6b7280')
+// ③ 접기 버튼 기호만 + ＋ 동일 스펙
+ok(/open \? '▲' : '▼'/.test(zoneCode) && !/open \? '접기 ▲' : '펼치기 ▼'/.test(zoneCode), '9-5 라벨 텍스트 제거 - ▼/▲ 기호만 (aria-label·title은 유지)')
+ok(/\.zone__add \{[^}]*padding: 6px 11px/.test(cssSrc), '9-6 .zone__add 스펙(padding 6px 11px) 유지 — fold-btn과 동일 세로 30px 확인 짝')
 
 console.log(`\nRESULT: PASS ${pass} / FAIL ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

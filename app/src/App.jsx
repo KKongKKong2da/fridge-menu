@@ -1,6 +1,8 @@
-// App.jsx — v1.5.1 (명세 1~3절 + 전수검사 규칙)
-// 화면: 헤더(타이틀 + ⓘ 2문장 설명) → [모두 선택][모두 해제] → 조 7개(각 조 끝 ＋, 접기/펼치기)
-//       → 종류 체크박스 5종 → [레시피 추천] → 결과 카드
+// App.jsx — v1.5.2
+//   - 드래그 양방향 복구: handleDragEnd의 overId === dragName 가드 제거 (뒤로 보내기 드롭 살림,
+//       제자리 드롭은 moveChipState no-op이라 저장 무변경 — v1.5.1의 "앞→뒤 불가" 해소)
+//   - 모두 해제 버튼 = 회색 (batch-btn--off), 칩 회색 연한화 (--off #9ca3af / --off-deep #6b7280)
+//   - 접기/펼치기 버튼: ＋ 버튼과 동일 크기, 내용 ▼/▲만 (라벨 "펼치기/접기" 텍스트 제거)
 // v1.5.1 변화 (사용자 요청: 칩 이동 불가 + 접기 소멸):
 //   - 드래그 센서 분리 (v1.5 단일 PointerSensor delay 1500는 활성화 불안정 → 폐기):
 //       MouseSensor { distance: 5 }                → PC: 눌른 채 5px 이동 = 즉시 드래그
@@ -76,13 +78,15 @@ export default function App() {
     setKinds((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
 
   // 검증 3·4: 드래그 종료 → 같은 조 안 순서만 변경. 다른 조 over는 moveChipState가 무이동 처리
+  // [v1.5.2 양방향 드래그 복구] overId === dragName 가드 제거:
+  //   dnd-kit은 드래그 중 빈자리를 앞 칩이 채우므로, 칩을 뒤로 보내면 over가 "자기 원위치"로 착지한다.
+  //   기존 가드가 그 드롭을 통째로 무효화 → "앞에 있는 걸 뒤로 못 보내는" 현상.
+  //   가드 없이 applyDrag에 넘기면 moveChipState가 같은 조·같은 자리 = 원본 반환(no-op, 저장 변경 없음)이라 안전하고,
+  //   다른 자리 드롭(from<target / from>target)은 모두 정상 이동(양방향).
   const handleDragEnd = useCallback(
     ({ active, over }) => {
       if (!over) return
-      const dragName = String(active.id)
-      const overId = String(over.id)
-      if (overId === dragName) return
-      applyDrag(dragName, overId)
+      applyDrag(String(active.id), String(over.id))
     },
     [applyDrag]
   )
@@ -120,7 +124,7 @@ export default function App() {
           <button type="button" className="batch-btn" onClick={selectAll}>
             모두 선택
           </button>
-          <button type="button" className="batch-btn" onClick={selectNone}>
+          <button type="button" className="batch-btn batch-btn--off" onClick={selectNone}>
             모두 해제
           </button>
         </div>
@@ -158,7 +162,7 @@ export default function App() {
       </section>
 
       <footer className="app__footer">
-        <p className="app__footer-note">v1.5.1 · 7개 조 67종 · 솔리드 칩 · PC 5px 드래그 · 모바일 1.5초 롱프레스 · 640px 이하 2행 접기/펼치기 · 조 안 드래그</p>
+        <p className="app__footer-note">v1.5.2 · 7개 조 67종 · 솔리드 칩 · 양방향 드래그 · 640px 이하 2행 접기/펼치기(▼▲) · 조 안 드래그</p>
       </footer>
     </div>
   )

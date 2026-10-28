@@ -30,8 +30,8 @@ let allOk = true
 for (const u of urls) {
   const res = await fetch(u + (u.includes('?') ? '&' : '?') + 'cb=' + Date.now())
   const body = res.ok ? await res.text() : ''
-  const flag = u.endsWith('.css') ? (body.includes('44px') ? ' [44px fold-btn OK]' : ' [44px MISSING]') :
-    u.endsWith('.js') ? (body.includes('1500') ? ' [1500ms sensor OK]' : ' [1500ms MISSING]') : ''
+  const flag = u.endsWith('.css') ? (body.includes('#9ca3af') ? ' [gray-400 off-color OK]' : ' [off-color MISSING]') :
+    u.endsWith('.js') ? (body.includes('fridge-chips:v4') ? ' [storage v4 OK]' : ' [v4 MISSING]') : ''
   if (!res.ok) allOk = false
   console.log(`${res.status} ${u.replace(site, '.')}${flag}`)
 }

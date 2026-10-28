@@ -1,4 +1,7 @@
-// ZoneList.jsx — v1.5.1
+// ZoneList.jsx — v1.5.2
+// v1.5.2 라벨: 텍스트 제거, ▼/▲ 기호만 (aria-label·title에는 '펼치기/접기' 유지).
+//   크기·테두리·색상 = 조 끝 ＋ 버튼과 동일 (padding 6px 11px · font 15px · line-height 1).
+//   (사용자 요청 ③: 모두 선택/해제보다 세로가 커 보이는 것 해소 + 기호만 실험)
 // 조 1개 = 헤더(번호 + 이름 + (n/m) + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
 // v1.5.1 수정:
 //   - [접기 기능 소멸 버그] v1.5는 판정을 "scrollHeight > clientHeight + 4"로 두어, 조가 펼친 상태
@@ -7,7 +10,7 @@
 //   - [해결] 판정을 콘텐츠 높이 기준으로 바꾼다:
 //       qualifies = scrollHeight > (2행 높이 74px + 4)   → 펼쳐져 있어도 scrollHeight는 전체 콘텐츠 높이이므로
 //       자격이 유지되어 접기 ▲ 버튼이 계속 보인다. 접힌 상태도 같은 값 → 펼치기 ▼ 버튼.
-//       open과 무관하게 자격만 있으면 compact일 때 버튼 표시.
+//   - 라벨 텍스트는 v1.5.1까지 "펼치기 ▼ / 접기 ▲" + 44×44px → v1.5.2에서 기호만으로 교체 (위 참조)
 //   - (n/m) 헤더 카운트 유지: n = 파랑+빨강(state 1·2), m = 전체. 파생 계산(저장 안 함), 즉시 갱신.
 //   - SortableContext items = 조의 칩 전량. 접힌 조는 3행째 칩이 화면에 안 보이므로 펼치고 옮기는 정책 (v1.5 확정 유지).
 import { useEffect, useRef, useState } from 'react'
@@ -86,9 +89,10 @@ export function ZoneList({ zone, label, chips, onAdd, onRemove, onCycle, compact
             type="button"
             className="zone__fold-btn"
             aria-label={open ? '접기' : '펼치기'}
+            title={open ? '접기' : '펼치기'}
             onClick={onToggleOpen}
           >
-            {open ? '접기 ▲' : '펼치기 ▼'}
+            {open ? '▲' : '▼'}
           </button>
         </div>
       )}

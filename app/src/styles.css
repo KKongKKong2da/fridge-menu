@@ -6,6 +6,11 @@
      chip--s2 빨강 #dc2626 = 임박
      chip--s0 회색 #6b7280 = 후보 제외 (상태 값 0 유지)
      x 버튼: 흰색, hover 시 배경과 동일 계열 어두운 색
+   v1.5.2 (5건 요청):
+     - ① 양방향 드래그: App handleDragEnd의 자기 자신 가드 제거 (JS 측)
+     - ③ 접기/펼치기 버튼: ▼/▲ 기호만 + ＋ 버튼과 동일 크기 (44×44·텍스트 라벨 폐기)
+     - ④ 모두 해제 버튼 = 회색 채움 (batch-btn--off, --off-deep)
+     - ⑤ 칩 회색 연한화 --off #9ca3af / hover --off-deep #6b7280
    v1.5.1 (핫픽스):
      - 센서 분리 (JS 측): MouseSensor distance 5 (PC 드래그) + TouchSensor delay 1500/tol 10 (모바일 롱프레스)
      - 접기 버튼: 자격 판정 = scrollHeight > 74+4 (콘텐츠 높이) → 펼친 조도 "접기 ▲" 유지 (JS 측)
@@ -20,8 +25,8 @@
    ============================================================ */
 :root {
   --bg: #f6f7f9; --card: #ffffff; --ink: #1d1f23; --muted: #6b7280; --line: #e3e6ea;
-  --blue: #2563eb; --red: #dc2626; --off: #6b7280;
-  --blue-deep: #1e40af; --red-deep: #991b1b; --off-deep: #4b5563;
+  --blue: #2563eb; --red: #dc2626; --off: #9ca3af; /* v1.5.2: 칩 회색 연한화 (gray-400, 기존 #6b7280) */
+  --blue-deep: #1e40af; --red-deep: #991b1b; --off-deep: #6b7280; /* v1.5.2: 회색 hover = 기존 칩색 gray-500 */
   --accent: #2563eb; --radius: 10px;
 }
 
@@ -62,6 +67,8 @@ body {
   border-radius: 8px; font-size: 13px; font-weight: 700; padding: 7px 14px; cursor: pointer;
 }
 .batch-btn:active { transform: translateY(1px); }
+/* v1.5.2 ④ 모두 해제 = 회색 (해제 결과 색을 버튼에 반영): 채움 --off-deep #6b7280 + 흰 글자 */
+.batch-btn--off, .batch-btn--off:active { background: var(--off-deep); border-color: var(--off-deep); color: #fff; }
 
 /* ---------- 초기화 안내 (명세 3절) ---------- */
 .migration {
@@ -95,14 +102,12 @@ body {
 /* v1.5 접힘: max-height 2행(74px) + overflow hidden은 ZoneList가 인라인으로 적용 (측정 연산과 짝) */
 /* zone__header의 .zone__title이 (n/m) 카운트를 포함 — 텍스트만 갱신, 스타일 그대로 (명세 3절) */
 
-/* ---------- 접기/펼치기 (명세 2절, 640px 이하 발동) — 라벨 "펼치기 ▼ / 접기 ▲", 조 우측 하단 44×44 ---------- */
+/* ---------- 접기/펼치기 (640px 이하 발동) — v1.5.2 ③: ▼/▲ 기호만, ＋ 버튼과 동일 크기 ---------- */
 .zone__fold { display: flex; justify-content: flex-end; margin-top: 6px; }
+/* .zone__add(padding 6px 11px · font 15px · line-height 1 · border-radius 8px)와 동일 스펙 → 세로 30px */
 .zone__fold-btn {
-  all: unset; box-sizing: border-box;
-  display: inline-flex; align-items: center; justify-content: center;
   border: 1.5px solid var(--accent); color: var(--accent); background: var(--card);
-  border-radius: 10px; font-size: 13px; font-weight: 700; line-height: 1;
-  min-width: 44px; height: 44px; padding: 0 10px; cursor: pointer;
+  border-radius: 8px; font-size: 15px; line-height: 1; padding: 6px 11px; cursor: pointer;
 }
 .zone__fold-btn:active { transform: translateY(1px); }
 
