@@ -165,6 +165,23 @@ export function addChipState(state, rawName, zone) {
   return { result: 'added', state: { chips: out } }
 }
 
+// ---------- v1.6.3 컨테이너 착지 번역 (순수 함수, node 검증) ----------
+// dnd-kit SortableContext는 컨테이너도 droppable로 등록한다 (id = ZoneList가 붙인 'zone-N').
+// closestCenter 판정에서 칩 사이 간격·행 우측/하단 여백에 놓으면 over.id가 '칩 이름'이 아니라
+// 'zone-N'(컨테이너)으로 잡힌다 (모바일 손끝 드롭에서 특히 잦다) → 저장 무이동 = 되돌아가는 잔여 경로.
+// 처리: over.id가 컨테이너면 "그 조 맨 뒤로 옮긴다"는 의도로 보고 같은 조 마지막 칩을 타깃으로 돌려준다.
+//   - 같은 조 마지막 칩 (빈 조 = null → 무이동)
+//   - 칩 이름이면 그대로
+//   - 조 간이면 마지막 칩을 주되 moveChipState가 조 간 = 원본 반환 → 무이동 (v1.4 "조 안 정렬만" 유지)
+export function translateContainerTarget(snapshot, fromName, overId) {
+  const m = /^zone-(\d+)$/.exec(String(overId ?? ''))
+  if (!m) return overId
+  const zone = Number(m[1])
+  const list = snapshot[zone]
+  if (!list || list.length === 0) return null
+  return list[list.length - 1]
+}
+
 // ---------- 드래그 정렬 (검증 3·4) — v1.4: 조 안 정렬만 / v1.6: 착지 위치 = 화면 미리보기와 일치 ----------
 // 조 번호 순서 + 조 안 화면 순서 = 플랫 인덱스의 기준 순서
 function flatOrder(chips) {
@@ -201,4 +218,23 @@ export function moveChipState(state, dragName, targetName) {
 // 프롬프트 나열 순서 = 화면 순서 (단일 소스 확인용 검증 헬퍼)
 export function screenOrder(chips) {
   return flatOrder(chips)
+}
+
+// ---------- v1.6.1 스냅샷 이동 계산 (순수 함수, App의 items 기준 스냅샷용) ----------
+// 조별 이름 배열 스냅샷 { [zone]: [이름...] }에 표준 arrayMove 착지를 적용한 결과를 반환한다.
+//   - from/to가 같은 조에 있으면: from을 빼고 to 인덱스에 삽입 (moveChipState와 동일 시맨틱)
+//   - 다르면 / to 없으면(from 제자리·조 간·빈 조): 원본 스냅샷 그대로
+export function computeSnapshotMove(snapshot, fromName, toName) {
+  if (toName === null || toName === undefined) return snapshot
+  const fromZone = ZONE_ORDER.find((z) => (snapshot[z] ?? []).includes(fromName))
+  const toZone = ZONE_ORDER.find((z) => (snapshot[z] ?? []).includes(toName))
+  if (fromZone === undefined || toZone === undefined) return snapshot
+  if (fromZone !== toZone) return snapshot // 조 간 = 무이동
+  const list = [...snapshot[fromZone]]
+  const fromIndex = list.indexOf(fromName)
+  const toIndex = list.indexOf(toName)
+  if (fromIndex === -1 || toIndex === -1) return snapshot
+  const [chip] = list.splice(fromIndex, 1)
+  list.splice(toIndex, 0, chip)
+  return { ...snapshot, [fromZone]: list }
 }
