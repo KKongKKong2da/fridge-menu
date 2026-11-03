@@ -1,6 +1,7 @@
-// ResultCard.jsx — v1.2 (명세 6·7절)
-// 3줄 전문: 재료 / 조미료(상시) / 종류(선택 시). 줄바꿈 유지, 줄마다 · (검증 13: 첫 줄+둘째 줄 분리 렌더)
-// 발판 2개만: [복사] = 3줄 전문을 그대로 클립보드(navigator.clipboard.writeText + textarea 폴백 유지)
+// ResultCard.jsx — v1.6.2 (명세 6·7절)
+// 전문: 임박(빨강=필수 사용) / 선택(파랑) / 조미료(상시) / 종류(선택 시). 줄바꿈 유지, 줄마다 ·
+// 라벨은 줄 수를 못 박지 않는다 (v1.6.2: 빨강 유무로 3~5줄) — "검색 프롬프트" 표기만.
+// 발판 2개만: [복사] = 전문을 그대로 클립보드(navigator.clipboard.writeText + textarea 폴백 유지)
 //             [Google] = 전문 전체(줄바꿈 포함) URL 인코딩 → 클릭 한 번으로 Google 검색 + AI 답변 (검증 17)
 // v1.1의 네이버/Gemini/Claude 버튼·LLM_URLS·hint 문구 제거 (발판 2개 축소).
 import { useState } from 'react'
@@ -48,7 +49,7 @@ export function ResultCard({ prompt }) {
 
   return (
     <section className="result-card">
-      <p className="result-card__label">검색 프롬프트 (3줄)</p>
+      <p className="result-card__label">검색 프롬프트 (임박 재료는 꼭 사용하도록 분리됨)</p>
       <div className="result-card__lines">
         {/* 각 줄을 별도 <p>로 → 화면에서 절대 합쳐지지 않음 (검증 13) */}
         {prompt.split('\n').map((line, i) => (
