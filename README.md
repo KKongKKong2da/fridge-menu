@@ -1,22 +1,230 @@
-# 냉장고 재료 · 메뉴 추천 (fridge-menu)
+# 🧊 냉장고 재료 · 메뉴 추천 (fridge-menu)
 
-가지고 있는 냉장고 재료 칩을 골라 **레시피 검색 프롬프트 한 줄**을 만들어주는 초경량 웹앱.
-검정(보유) → 파랑(쓸 재료) → 빨강(임박+꼭 쓸) 3색 칩, 드래그 정렬, 프롬프트 복사/4발판(Google·네이버·Gemini·Claude).
+> 내 냉장고에 있는 재료를 **칩(chip)으로 고르고**, 드래그로 우선순위를 정리하면
+> **AI에게 바로 붙여넣을 수 있는 레시피 검색 프롬프트**를 만들어주는 React 웹앱.
 
-- 스택: Vite + React (JavaScript), @dnd-kit, localStorage 1키(`fridge-chips`)
-- 명세서: `SPEC.md` (v1.1)
-- 검증: `verify/*.mjs` (node로 저장/프롬프트 로직 시뮬 — `node verify\m3-logic-test.mjs` 등)
+- 🌐 **라이브:** https://kkongkkong2da.github.io/fridge-menu/
+- 🔧 **스택:** React 18 · Vite 5 · @dnd-kit · JavaScript(ES2020) · CSS 변수 · GitHub Actions → Pages
+- 📦 **버전:** v1.6.3 (7개 조 67종 · 양방향 드래그 · 모바일 롱프레스 · 640px 접기/펼치기 · 임박 재료 필수화)
 
-## 실행
+---
 
+## 1. 프로젝트 개요
+
+"냉장고에 재료는 많은데 오늘 뭘 해 먹지?"에서 시작했습니다.
+재료를 체크리스트로 고르는 기존 앱들은 **재료 나열 순서 = 우선순위**라는
+핵심 정보를 전달하지 못합니다. 이 앱은 그 정보를 **색(임박 여부)과
+드래그 순서(우선순위)** 로 화면에 구현하고, 화면이 보여주는 순서를
+그대로 검색 프롬프트로 변환합니다.
+
+**핵심 설계 원칙 — 단일 소스(Single Source of Truth)**
+
+```
+저장된 chips 배열 순서  =  화면 칩 순서  =  프롬프트 재료 나열 순서
+```
+
+세 가지가 항상 하나의 배열에서 파생되므로, 드래그로 순서를 옮기면
+저장·화면·프롬프트·새로고침이 모두 같은 순서를 유지합니다.
+(v1.6 계열에서 이 "순서 일치" 문제를 가장 치열하게 다룬 앱입니다 — §6 참조)
+
+## 2. 주요 기능
+
+### 2.1 재료 칩 — 3색 상태 모델
+- 기본 재료 **7개 조 67종** (고기·달걀 10 / 채소·과일 17 / 수산·건어 7 / 곡물·면·빵 15 / 우유·두유 5 / 가공·소스 10 / 냉동·기타 3)
+- 칩 클릭 1회 = 상태 순환: **파랑(쓸 재료) → 빨강(임박) → 회색(제외) → 파랑**
+  - 표기는 "회색"이지만 코드 값은 `state: 0`을 유지하는 3값 상태 모델
+- 조 헤더에 `(선택 수/전체 수)` 실시간 카운트 (파생 계산, 저장 없음)
+
+### 2.2 드래그 정렬 (조 안 우선순위)
+- **PC**: 눌른 채 5px 이동 즉시 드래그 시작 (MouseSensor activationConstraint)
+- **모바일**: 0.6초 꾹 누름(long-press, TouchSensor delay 600ms + tolerance 10px)
+  - 600ms 안에 손이 10px 이상 움직이면 센서가 스스로 취소 → 세로 스크롤에 양보
+- `touch-action`을 상태별 스위칭: 평소 `pan-y`(브라우저 스크롤 직결) → 드래그 중 `none`
+- **조 안 정렬만** 허용: 같은 조 안에서만 순서 변경, 조 간 드롭은 무이동(설계 정책)
+- 놓는 순간 화면 미리보기(드래그 중 정렬 애니메이션)와 **저장 결과가 정확히 일치**
+  — 표준 `arrayMove` 시맨틱 단일화 (v1.6), 컨테이너 여백 드롭 번역 (v1.6.3, §6)
+
+### 2.3 재료 관리
+- 조 끝 **＋** 버튼 → 인라인 입력 → Enter로 그 조에 **파랑 칩 추가** (중복 이름 차단)
+- 칩의 **×** 버튼으로 삭제 (×는 드래그 대상 아님)
+- **모두 선택 / 모두 해제** 일괄 버튼 (배열 순서 그대로, state만 변경)
+
+### 2.4 모바일 레이아웃 (640px 이하)
+- 2행을 넘는 조는 기본 **접힘** (2행 높이 74px로 clamp) → **▼/▲** 버튼으로 펼침/접힘
+- 펼친 조 번호를 `fridge-open-zones`에 저장해 새로고침 후에도 유지
+- 데스크톱(>640px)에서는 항상 전체 펼침 (접기 기능 발동 안 함)
+- `ResizeObserver`로 콘텐츠 높이를 실측해 접기 버튼 표시 자격을 판정
+
+### 2.5 레시피 종류 선택
+- `간단 · 식사 · 안주 · 브런치 · 디저트` 5종 체크박스 (다중 선택, 기본 미선택)
+- 선택 상태는 화면 상태만 — localStorage에 저장하지 않는 **영속/비영속 상태 경계** 설계
+
+### 2.6 검색 프롬프트 생성 (v1.6.2 — 임박 재료 필수화)
+파랑/빨강을 **역할이 다른 두 줄로 분리**해 "임박 = 꼭 써야 한다"를 프롬프트에 전달합니다.
+
+```
+· 반드시 사용해야 하는 임박 재료: 달걀, 우유                      ← 빨강 (필수)
+· 위의 임박 재료를 꼭 쓰고, 아래 재료들 일부로 만들 수 있는 레시피를 추천해줘:
+  양파, 대파, 치즈                                                ← 파랑 (선택)
+· 소스, 오일, 조미료, 장류 모두 보유                              ← 상시 줄
+· 종류: 간단, 안주                                              ← 종류 선택 시에만
+```
+- 빨강이 없으면 파랑 한 줄(단순 문구), 재료 0개면 빈 안내 표시
+- 재료 중복 나열 없음(빨강 1줄·파랑 2줄), 회색 칩은 어느 줄에도 들어가지 않음
+- 접힘과 무관하게 chips 배열 그대로 전량 사용
+
+### 2.7 실행 발판 2개
+- **[복사]** — 전문(줄바꿈 유지)을 그대로 클립보드에
+  (`navigator.clipboard` + 미지원 환경 대비 `execCommand` textarea 폴백)
+- **[Google]** — 전문 전체(줄바꿈 포함)를 URL 인코딩해
+  **클릭 한 번** Google 검색 + AI 답변으로 바로 이동
+
+## 3. 기술 스택
+
+| 영역 | 선택 | 선택 이유 |
+|---|---|---|
+| 프레임워크 | **React 18.3** (hooks, JSX) | 컴포넌트 분리 + 커스텀 훅으로 상태 로직을 격리하기 위해 |
+| 빌더 | **Vite 5.4** (`@vitejs/plugin-react`) | dev 서버 즉시 반응, `base: './'`로 GitHub Pages 하위 경로 배포 대응 |
+| 드래그앤드롭 | **@dnd-kit** core/sortable/utilities | 터치/마우스 센서를 입력 장치별로 분리 구성할 수 있는 유일한 선택지 |
+| 언어 | **JavaScript (ESM)** | TypeScript 없이도 순수 로직 모듈(storage/prompt)을 node로 검증하는 구조로 대체 |
+| 스타일 | **vanilla CSS + 커스텀 프로퍼티** | 칩 3색·회색 단일 변수(`--gray`) 등 토큰화를 CSS 변수로 관리 |
+| 저장 | **localStorage (버전 키)** | 백엔드 없는 정적 앱; 스키마 버전 키로 마이그레이션 설계 |
+| CI/CD | **GitHub Actions → Pages** | main push = 자동 빌드·배포 (§8) |
+
+## 4. 디렉터리 구조
+
+```
+fridge-menu/
+├── .github/workflows/deploy.yml   # main push → Pages 자동 배포
+├── app/                           # React 앱
+│   ├── index.html
+│   ├── vite.config.js             # base: './' (Pages 하위 경로)
+│   ├── package.json               # react 18.3, @dnd-kit 6/8
+│   ├── src/
+│   │   ├── App.jsx                # 화면 조립 + dnd 스냅샷 소유 + 640px 판정
+│   │   ├── main.jsx
+│   │   ├── styles.css             # 칩 3색, --gray, 접기 2행(74px)
+│   │   ├── components/
+│   │   │   ├── Chip.jsx           # 3색 칩 + useSortable + 드래그-클릭 봉인
+│   │   │   ├── ZoneList.jsx       # 조 헤더(카운트/＋) + SortableContext + 접기(▼▲)
+│   │   │   ├── KindPicker.jsx     # 종류 체크박스 5종
+│   │   │   ├── ResultCard.jsx     # 프롬프트 카드 + 복사 + Google
+│   │   │   └── MigrationNotice.jsx# 레거시 사용자 안내 + 백업 복사
+│   │   ├── hooks/
+│   │   │   ├── useFridge.js       # localStorage 상태 훅 (로직은 lib/storage에 위임)
+│   │   │   └── useLongPressDrag.js# 600ms 상수 + 드래그-클릭 오폱발 봉인 ref
+│   │   ├── lib/                   # ★ React 없이 node로 검증 가능한 순수 로직
+│   │   │   ├── storage.js         # 저장/정렬/마이그레이션/컨테이너 번역
+│   │   │   └── prompt.js          # 프롬프트 줄 생성 (순수 문자열 함수)
+│   │   └── data/
+│   │       └── materials.js       # 7개 조 67종 + 상태 상수
+│   └── verify/                    # v1.6 계열 검증 스크립트 (node)
+│       ├── v16-logic-test.mjs     # v1.6 드래그/저장/스크롤 로직
+│       ├── v162-logic-test.mjs    # v1.6.2 프롬프트 생성 27케이스
+│       ├── v163-logic-test.mjs    # v1.6.3 착지 번역 + 화면/저장 일치 38케이스
+│       ├── var-scan.mjs           # var 사용 · window. 접두사 금지 스캔
+│       └── _kor-scan.mjs          # 소스 내 NUL/제어문자(파일 파손) 스캔
+├── verify/                        # v1.2~v1.4-era 검증 (v12/v13/v14, var-scan)
+├── check-live.mjs                 # 배포된 라이브 자산 검사
+├── poll-deploy.mjs                # Actions 배포 완료 폴링
+└── CHANGES_v1.6.1.md              # 버전별 변경 명세 (v1.6.1)
+```
+
+**아키텍처 포인트** — `lib/`는 React import가 없는 **순수 함수 모듈**입니다.
+`buildLines()`(프롬프트) · `moveChipState()`(정렬) · `loadState()`(저장)을
+브라우저 없이 `node verify/v163-logic-test.mjs` 한 줄로 검증합니다.
+UI(lib 없는 JSX)와 로직(lib 순수 함수)의 경계를 물리적으로 분리한 구조입니다.
+
+## 5. 데이터 모델 & 영속성
+
+### 저장 (localStorage)
+| 키 | 내용 | 비고 |
+|---|---|---|
+| `fridge-chips:v4` | `{ chips: [{name, zone, state, custom}, ...] }` | **유일한 저장 소스.** 배열 순서 = 화면 = 프롬프트 |
+| `fridge-open-zones` | 펼친 조 번호 배열 | 모바일 접힘 유지 (데스크톱은 무의미) |
+| (레거시 `fridge-chips`, `:v2`, `:v3`) | 구버전 백업 | v4 없고 레거시 있으면 → 초기화 안내 + 원문 복사 제공 |
+
+### 상태 규칙
+- 칩 1개 스키마 `{ name, zone(1~7), state(0|1|2), custom }` — 전수 검증(sanitize) 후
+  **하나라도 걸리면 전체를 기본 67종 파랑으로 초기화** (파손 부분 복구보다 결정적 초기화 선택)
+- 사이클 `(state + 1) % 3`, 일괄 선택/해제는 state 치환, 추가는 그 조 맨 뒤·파랑
+- 스키마가 바뀔 때마다 키 버전을 bump(`v1→v2→v3→v4`)하고 마이그레이션 안내를 두는
+  **버전 관리되는 로컬 DB** 방식으로 설계
+
+## 6. 구동 원리 (드래그 & 드롭 파이프라인)
+
+`DndContext`의 착지 판정부터 저장까지, 화면·저장·새로고침이 어긋나지 않도록
+3단계가 **동일한 arrayMove 시맨틱**을 공유합니다.
+
+```
+① 드롭: over.id = '칩 이름' 또는 'zone-N'(ZoneList 컨테이너)
+② 번역(translateContainerTarget): 'zone-N' → "그 조 맨 뒤" 의도로 해석,
+   같은 조 마지막 칩 이름으로 치환 (빈 조 = 무이동)
+③ 저장(moveChipState)  : targetIndex 착지 arrayMove, 조 간 드롭 = 원본 반환
+   화면(snap shot, computeSnapshotMove): App이 소유한 조별 items를 같은 시맨틱으로 갱신
+```
+
+이 파이프라인으로 v1.5~v1.6.1 동안 사용자에게 가장 많이 보인 3가지 버그
+("앞으로 못 옮김 / 놓은 자리로 갔다가 되돌아감 / 새로고침 시 옛 순서")를
+원인 단위( 미리보기 한 칸 어긋남, 컨테이너 droppable 오평판정, items 역추적)로 봉합했습니다.
+각 봉합은 `verify/v16x-logic-test.mjs` 케이스로 고정해 재발하지 않게 했습니다.
+
+## 7. 로컬 실행 · 검증 · 배포
+
+### 실행
 ```bash
 cd app
 npm install
-npm run dev      # 개발 서버
-npm run build    # dist 생성
+npm run dev       # 개발 서버 (http://localhost:5173/fridge-menu 앱)
+npm run build     # dist/ 정적 자산 생성
+npm run preview   # 빌드 결과 미리보기
 ```
 
-## 배포 (GitHub Pages)
+### 검증 (node만 있으면 됨)
+```bash
+node app/verify/v163-logic-test.mjs   # v1.6.3 논리 38케이스
+node app/verify/v162-logic-test.mjs   # v1.6.2 프롬프트 27케이스
+node app/verify/v16-logic-test.mjs    # v1.6 드래그·저장 로직
+node app/verify/var-scan.mjs          # var / window. 금지 규칙 스캔
+node app/verify/_kor-scan.mjs         # 소스 NUL·제어문자(인코딩 파손) 스캔
+```
 
-`.github/workflows/deploy.yml`이 main push 시 `app/`을 빌드해 Pages로 배포합니다.
-`vite.config.js`의 `base: './'`로 하위 경로(`/fridge-menu/`)에서도 자산이 정상 로드됩니다.
+### 배포 (GitHub Actions)
+`.github/workflows/deploy.yml`이 **main push 시** `app/`을 Node 20에서
+`npm ci && npm run build` → `app/dist`를 Pages로 발행합니다.
+`vite.config.js`의 `base: './'`로 `/fridge-menu/` 하위 경로에서도 자산이 정상 로드됩니다.
+
+## 8. 버전 히스토리
+
+| 버전 | 내용 |
+|---|---|
+| v1.1 | 칩 체크리스트 + 최근 사용(fridge-recent) + 발판 4개(Google·네이버·Gemini·Claude) |
+| v1.2 | 종류 체크박스 5종 신설, 최근바 제거, 발판 복사+Google 축소 |
+| v1.3 | 저장 키 버전화(`:v2` `:v3`), 조 추가 개선 |
+| v1.4 | **조 개편 7개 67종**(수산·건어 신설), 드래그를 조 안 정렬로 축소, 640px 접기/펼치기 신설, 키 `fridge-chips:v4` |
+| v1.5 | 접기 버튼 소멸 버그 수정(scrollHeight → 콘텐츠 높이 기준), 기호 ▼/▲ |
+| v1.6 | 입력 장치별 센서 분리(PC 즉시 / 모바일 600ms 롱프레스), touch-action 스위칭, 드래그-클릭 봉인(350ms), 회색 `--gray` 통일, 미리보기/저장 arrayMove 일치 |
+| v1.6.1 | App의 **items 스냅샷** 소유 — 드롭 확정 시에만 갱신 (미리보기 원복 버그 봉합) |
+| v1.6.2 | **프롬프트 임박(빨강) 필수화** — 빨강/파랑 역할 분리 |
+| v1.6.3 | **컨테이너 착지 번역** (zone-N → 그 조 맨 뒤) — "되돌아가감" 잔여 경로 최종 봉합, 38케이스 고정 |
+
+각 버전의 요구 명세는 `CHANGES_v1.6.1.md`(요구만 적고 구현은 작성자 선택) 같은
+변경 문서로 관리했습니다.
+
+## 9. 이 앱으로 증명하는 것 (포트폴리오 관점)
+
+1. **React 실 구현**: 컴포넌트 5개 + 커스텀 훅 2개 + 순수 lib 2개 계층 분리,
+   `useRef` 스냅샷으로 렌더 사이드이펙트 없이 외부 라이브러리(dnd-kit)와 정합성 유지
+2. **드래그앤드롭 심화**: 센서 activationConstraint로 PC/터치 UX 분리,
+   미리보기 transform과 저장 시맨틱을 일치시킨 정렬 파이프라인 설계
+3. **모바일 UX**: 롱프레스(600ms) + 손쓰기(tolerance 10px) + 세로 스크롤(touch-action)의 3자 분쟁 해결
+4. **영속성 설계**: 버전 키 스키마 + 전수 sanitize + 결정적 초기화 + 마이그레이션 안내/백업
+5. **테스트 discipline**: UI 로직을 순수 함수로 빼내 node 스크립트 100+ 케이스로
+   버전마다 회귀 테스트를 고정 (JS 테스트 러너 없는 프로젝트의 자체 QA 방식)
+6. **CI/CD**: GitHub Actions 자동 빌드·배포, `base: './'` 하위 경로 대응,
+   배포 완료 폴링/라이브 자산 검사 스크립트(poll-deploy, check-live)로 배포 검증
+
+## 라이선스
+
+개인 포트폴리오 프로젝트입니다. 코드·디자인을 참고하는 것은 자유지만,
+재배포는 원저자 표기를 부탁합니다.
