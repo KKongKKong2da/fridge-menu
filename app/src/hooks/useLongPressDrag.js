@@ -4,7 +4,7 @@
 import { useCallback, useRef } from 'react'
 
 export const LONG_PRESS_MS = 600 // 꾹 누름 → 잡힘 (App의 TouchSensor delay와 동일 값, 단일 소스)
-const SUPPRESS_MS = 350 // 드래그 종료 후 이 시간 안의 클릭은 색 사이클·× 로 취급하지 않음
+export const SUPPRESS_MS = 350 // 드래그 종료 후 이 시간 안의 클릭은 색 사이클·× 로 취급하지 않음
 
 export function useLongPressDrag() {
   const stateRef = useRef({ live: false, lastEnd: 0 })

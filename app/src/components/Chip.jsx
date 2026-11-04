@@ -4,8 +4,8 @@
 // · × 버튼은 드래그 대상 아님(listeners 미부착), 활성화 시 스케일 1.05 + z50 + 150ms 미끄러짐
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { SUPPRESS_MS } from '../hooks/useLongPressDrag.js'
 
-const DRAG_CLICK_SUPPRESS_MS = 350 // App의 useLongPressDrag SUPPRESS_MS와 동일 (드롭 파생 클릭 차단)
 
 export function Chip({ chip, onRemove, onCycle, longPressRef }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -16,7 +16,7 @@ export function Chip({ chip, onRemove, onCycle, longPressRef }) {
     const lp = longPressRef?.current
     if (!lp) return false
     if (lp.live) return true
-    return Date.now() - lp.lastEnd < DRAG_CLICK_SUPPRESS_MS
+    return Date.now() - lp.lastEnd < SUPPRESS_MS
   }
 
   const handleCycle = () => {

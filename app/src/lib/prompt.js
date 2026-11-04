@@ -15,11 +15,11 @@ export const PROMPT_EMPTY_MSG = '쓸 재료를 파랑/빨강으로 표시해주�
 export const BULLET = '· '
 
 // 역할 분리 (v1.6.2): 빨강(임박)과 파랑(선택)을 각각 화면 순서로
-export function redNames(chips) {
+function redNames(chips) {
   return chips.filter((c) => c.state === 2).map((c) => c.name)
 }
 
-export function blueNames(chips) {
+function blueNames(chips) {
   return chips.filter((c) => c.state === 1).map((c) => c.name)
 }
 

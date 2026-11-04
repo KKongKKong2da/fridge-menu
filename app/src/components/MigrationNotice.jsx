@@ -1,6 +1,7 @@
 // MigrationNotice.jsx — v4 키 없고 레거시(v1~v3) 있는 최초 실행 안내
 // [기존 데이터 복사](레거시 JSON 클립보드, ResultCard와 동일 폴백) + [초기화 시작](confirmMigration)
 import { useState } from 'react'
+import { copyText } from '../lib/clipboard.js'
 
 export function MigrationNotice({ getLegacyJson, onConfirm }) {
   const [copied, setCopied] = useState(false)
@@ -13,24 +14,7 @@ export function MigrationNotice({ getLegacyJson, onConfirm }) {
   const copyLegacy = async () => {
     const json = getLegacyJson()
     if (!json) return
-    try {
-      await navigator.clipboard.writeText(json)
-      flashCopied()
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = json
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      try {
-        document.execCommand('copy')
-        flashCopied()
-      } catch {
-        /* 클립보드 불가 환경: 피드백 없이 종료 */
-      }
-      document.body.removeChild(ta)
-    }
+    if (await copyText(json)) flashCopied()
   }
 
   return (

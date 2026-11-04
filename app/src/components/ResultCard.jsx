@@ -1,7 +1,8 @@
-// ResultCard.jsx — 검색 프롬프트 카드 (3~5줄) + 발판 2개 [복사]( 전문 클립보드, textarea 폴백) /
+// ResultCard.jsx — 검색 프롬프트 카드 (3~5줄) + 발판 2개 [복사](lib/clipboard.js copyText) /
 // [Google]( 전문 전체 URL 인코딩 → 클릭 1회 검색+AI)
 import { useState } from 'react'
 import { PROMPT_EMPTY_MSG, buildGoogleUrl } from '../lib/prompt.js'
+import { copyText } from '../lib/clipboard.js'
 
 export function ResultCard({ prompt }) {
   const [copied, setCopied] = useState(false)
@@ -20,27 +21,9 @@ export function ResultCard({ prompt }) {
     setTimeout(() => setCopied(false), 1600)
   }
 
-  // 검증 16: 3줄 전문(줄바꿈 유지)을 그대로 클립보드에 복사.
-  // clipboard API 없거나 비보안 컨텍스트면 textarea 폴백(execCommand)으로 같은 원문 복사.
+  // 전문(줄바꿈 유지)을 그대로 복사 — 폴백 포함 구현은 lib/clipboard.js
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(prompt)
-      flashCopied()
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = prompt
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      try {
-        document.execCommand('copy')
-        flashCopied()
-      } catch {
-        /* 클립보드 불가 환경: 피드백 없이 종료 */
-      }
-      document.body.removeChild(ta)
-    }
+    if (await copyText(prompt)) flashCopied()
   }
 
   return (
