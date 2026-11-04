@@ -5,7 +5,7 @@
 
 - 🌐 **라이브:** https://kkongkkong2da.github.io/fridge-menu/
 - 🔧 **스택:** React 18 · Vite 5 · @dnd-kit · JavaScript(ES2020) · CSS 변수 · GitHub Actions → Pages
-- 📦 **버전:** v1.6.3 (7개 조 67종 · 양방향 드래그 · 모바일 롱프레스 · 640px 접기/펼치기 · 임박 재료 필수화)
+- 📦 **버전:** v1.6.3 + v1.6.3r 리팩토링 (7개 조 67종 · 양방향 드래그 · 모바일 롱프레스 · 640px 접기/펼치기 · 임박 재료 필수화 · 기능 변화 0 코드 정리)
 
 ---
 
@@ -113,19 +113,22 @@ fridge-menu/
 │   │   │   └── useLongPressDrag.js# 600ms 상수 + 드래그-클릭 오평발 봉인 ref
 │   │   ├── lib/                   # ★ React 없이 node로 검증 가능한 순수 로직
 │   │   │   ├── storage.js         # 저장/정렬/마이그레이션/컨테이너 착지 번역
-│   │   │   └── prompt.js          # 프롬프트 줄 생성 (순수 문자열 함수)
+│   │   │   ├── prompt.js          # 프롬프트 줄 생성 (순수 문자열 함수)
+│   │   │   └── clipboard.js       # 클립보드 복사 폴백 단일 구현 (v1.6.3r)
 │   │   └── data/
 │   │       └── materials.js       # 7개 조 67종 + 상태 상수
-│   └── verify/                    # v1.6 계열 검증 스크립트 (node)
-│       ├── v16-logic-test.mjs     # v1.6 드래그·저장·스크롤 로직
+│   └── verify/                    # ★ 공식 검증 게이트 (v1.6 계열, node)
+│       ├── v16-logic-test.mjs     # v1.6 드래그·저장·스크롤 59케이스
 │       ├── v162-logic-test.mjs    # v1.6.2 프롬프트 생성 27케이스
 │       ├── v163-logic-test.mjs    # v1.6.3 착지 번역 + 화면/저장 일치 38케이스
-│       ├── var-scan.mjs           # var 사용 · window. 접두사 금지 스캔
-│       └── _kor-scan.mjs          # 소스 내 NUL/제어문자(파일 파손) 스캔
-├── verify/                        # v1.2~v1.4-era 검증 (v12/v13/v14, var-scan)
+│       ├── var-scan.mjs           # var 사용 · window. 접두사 · export 중복 스캔
+│       ├── _kor-scan.mjs          # 소스 내 NUL/제어문자(파일 파손) 스캔
+│       └── poll-deploy.mjs        # Actions 배포 완료 폴링
+├── verify-legacy/                 # v1.2~v1.4 스펙 스크립트 (기록용, 게이트 아님)
 ├── check-live.mjs                 # 배포된 라이브 자산 검사
-├── poll-deploy.mjs                # Actions 배포 완료 폴링
-└── CHANGES_v1.6.1.md              # 버전 변경 명세 (요구만 기록하는 방식)
+├── CHANGES_v1.6.1.md              # 버전 변경 명세 (요구만 기록하는 방식)
+├── CHANGES_styles_history.md      # styles.css 버전 히스토리 (v1.6.3r 이관)
+└── REFACTOR_PLAN_20261104.md      # 리팩토링 설계서 (단계별 커밋 + 게이트 계획)
 ```
 
 **아키텍처 포인트** — `lib/`는 React import가 없는 **순수 함수 모듈**입니다.
@@ -181,18 +184,22 @@ npm run preview   # 빌드 결과 미리보기
 
 ### 검증 (Node만 있으면 실행 가능)
 ```bash
-node app/verify/v163-logic-test.mjs   # v1.6.3 논리 38케이스 (ALL PASS)
-node app/verify/v162-logic-test.mjs   # v1.6.2 프롬프트 27케이스 (ALL PASS)
-node app/verify/v16-logic-test.mjs    # v1.6 드래그·저장 로직
-node app/verify/var-scan.mjs          # var / window. 금지 규칙 스캔
+node app/verify/v163-logic-test.mjs   # v1.6.3 착지 번역·화면/저장 일치 38케이스
+node app/verify/v162-logic-test.mjs   # v1.6.2 프롬프트 생성 27케이스
+node app/verify/v16-logic-test.mjs    # v1.6 드래그·저장·스크롤 59케이스
+node app/verify/var-scan.mjs          # var / window. / export 중복 스캔
 node app/verify/_kor-scan.mjs         # 소스 NUL·제어문자(인코딩 파손) 스캔
 ```
+
+**5종 합계 124케이스 ALL PASS가 공식 게이트입니다** (exit 0 = 통과, 실패 시 exit 1).
+`verify-legacy/`의 스크립트는 v1.2~v1.4 스펙 기준이라 현행 코드에서 FAIL이 나오며,
+이것은 정상입니다 (기록용이며 게이트에 포함하지 않습니다).
 
 ### 배포 (GitHub Actions)
 `.github/workflows/deploy.yml`이 **main push 시** `app/`을 Node 20에서
 `npm ci && npm run build` → `app/dist`를 Pages로 발행합니다.
 `vite.config.js`의 `base: './'`로 `/fridge-menu/` 하위 경로에서도 자산이 정상 로드됩니다.
-배포 완료 후 `poll-deploy.mjs`(커밋 SHA 12자 인자)와 `check-live.mjs`로
+배포 완료 후 `app/verify/poll-deploy.mjs`(커밋 SHA 12자 인자)와 `check-live.mjs`로
 발행된 js/css 자산까지 확인하는 절차를 사용합니다.
 
 ## 8. 버전 히스토리
@@ -208,6 +215,32 @@ node app/verify/_kor-scan.mjs         # 소스 NUL·제어문자(인코딩 파�
 | v1.6.1 | App이 **items 스냅샷**을 소유 — 드롭 확정 시점에만 갱신 (미리보기 원복 버그 봉합) |
 | v1.6.2 | **프롬프트 임박(빨강) 필수화** — 빨강/파랑 역할 분리 |
 | v1.6.3 | **컨테이너 착지 번역** (zone-N → 그 조 맨 뒤) — "되돌아가감" 잔여 경로 최종 봉합, 38케이스 고정 |
+| **v1.6.3r** | **리팩토링 (기능 변화 0)** — 상세는 아래 표 |
+
+### v1.6.3r 리팩토링 (2026-11-04, 5단계 커밋)
+
+"사용자 체감 기능 변화 0"을 전제로, 5단계 각각의 끝에 **app/verify 게이트
+124케이스 ALL PASS + 빌드 성공**을 요구하는 방식으로 진행했습니다.
+전 단계 기준점은 git 태그 `pre-refactor-ba4f756` (단계별 `git revert` 가능).
+
+| 단계 | 대상 | 작업 | 커밋 |
+|---|---|---|---|
+| 1 | 검증 체계 | 게이트 5종을 `app/verify`로 확정 — 구버전 스펙에 박힌 정적 단정 3건을 현행(v1.6.3) 구조로 보정(v16 57→59케이스), 구 스크립트 4종은 `verify-legacy/`로 격리(현행 기준 FAIL은 정상임을 헤더에 명시), `poll-deploy` 사본 정리, `.gitignore`에 `*.log` | `807a444` |
+| 2 | styles.css | 버전 히스토리 주석 37줄 → `CHANGES_styles_history.md`로 이관, 버튼 8종의 개별 정의 6블록 → **공통 1블록 + 변형(색·크기)** 으로 통합 (translateY 7곳→3곳, ＋/▼▲ 크기 규격이 단일 정의) 191→173줄 | `f2364fb` |
+| 3 | src 주석 | 11개 파일의 "증상-원인 서사" 헤더 151줄 → 용도+함정 39줄로 축약. **`git diff`로 코드 라인 변화 0건 검증.** 게이트 스크립트가 `stripC`(주석 제거 후 검사) 구조라 구조상 무영향 | `dc24c1e` |
+| 4 | 중복 코드 | `lib/clipboard.js` 신설 — ResultCard·MigrationNotice에 복제된 textarea 폴백 15줄×2 → `copyText()` 1함수로 (-26줄), `SUPPRESS_MS=350` 단일 소스화(Chip이 import), 게이트·레거시 import를 grep으로 대조해 safe한 export만 내부로 강등 | `8aa06ea` |
+| 5 | 잔여물 | `RecentBar.jsx` 삭제(v1.2 폐지 후 import 0건), 로그 7종 삭제, `package.json` version 1.3.0 → 1.6.3 (발표 버전 정합) | `8c7b909` |
+
+**결과**: src 484줄 → 약 365줄(-25%), styles.css 191 → 173줄, 주석 157 → 약 40줄,
+`dist` js 199.79 → 199.60 kB. 사용자 기능·화면·데이터는 그대로이며
+5단계 전체에서 게이트 124케이스가 동일한 결과로 통과했습니다.
+
+**리팩토링 과정에서 얻은 판단 기준**
+- 히스토리(버전 로그)는 코드·CSS 주석이 아니라 **git 커밋과 CHANGES 문서**가 보관한다
+- **2장 이상 필사된 코드는 1장**으로(폴백·상수·스타일), 단일 소스화
+- 죽은 코드(import 0건 파일, 미사용 export)는 제거하되 **게이트 import 목록 grep 대조**로 안전 확인
+- 리팩토링 전후에 통과할 **기계 검증 게이트(exit code)** 가 먼저 확보되어야 한다
+- "이건 안 고치는 게 이득"을 명시적으로 결정한다 (App.jsx 분리, TypeScript 전환, 마이그레이션 코드 유지)
 
 버전 요구사항은 `CHANGES_v1.6.1.md`처럼 **화면 동작의 목표만 적고
 구현 방식은 개발자가 고르는 방식**의 변경 문서로 관리했습니다.
@@ -225,7 +258,9 @@ node app/verify/_kor-scan.mjs         # 소스 NUL·제어문자(인코딩 파�
 6. **CI/CD** — GitHub Actions 자동 빌드·배포, `base: './'` 하위 경로 대응,
    배포 완료 폴링·라이브 자산 검사 스크립트로 배포까지 검증
 7. **문서/요구 관리** — CHANGES 문서로 요구와 구현을 분리하고,
-   코드 주석에 "증상 → 원인 → 봉합"을 기록하는 방식 유지
+   "증상 → 원인 → 봉합" 기록은 git 커밋·CHANGES 문서가 담당 (코드는 현재 동작만)
+8. **리팩토링** — v1.6.3r: 5단계 커밋 + 각 단계 게이트 124케이스로
+   "기능 변화 0"을 기계 검증하며 src -25% / CSS -27% 감축 (v1.6.3r 표 참조)
 
 ## 라이선스
 
