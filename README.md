@@ -103,6 +103,7 @@ node app/verify/_kor-scan.mjs         # 소스 파일 인코딩 파손 스캔
 ```
 
 5종 합계 124케이스 통과를 공식 검증 기준으로 삼았습니다. main에 푸시하면 GitHub Actions가 Node 20에서 빌드해 Pages로 배포합니다.
+verify-legacy/의 스크립트는 v1.2~v1.4 스펙 기준이라 현행 코드에서 FAIL이 나옵니다 (정상, 게이트 아님).
 
 ## 이 프로젝트에서 보여주는 역량
 
