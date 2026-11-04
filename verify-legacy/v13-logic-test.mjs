@@ -1,3 +1,4 @@
+// [LEGACY] v1.3 스펙 기준 스크립트 — 현행과 스펙 90% 중복. 기록용, 게이트 아님(app/verify 5종).
 // verify/v13-logic-test.mjs — v1.3 검증 케이스 14건 (node 로직 시뮬)
 // 실행: node verify/v13-logic-test.mjs   (fridge-menu 폴더에서)
 // React/CSS 렌더가 필요한 것(3의 채움 색, 8의 ⓘ 토글)은 코드 정적 확인으로 대체 표시.

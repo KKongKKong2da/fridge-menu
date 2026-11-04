@@ -1,3 +1,4 @@
+// [LEGACY] v1.4 스펙 기준 스크립트 — 현행 코드 기준 FAIL(15건)은 정상. 기록용, 게이트 아님(app/verify 5종).
 // verify/v14-logic-test.mjs — v1.4 검증 케이스 13건 (node 로직 시뮬 + 정적 확인)
 // 실행: node verify/v14-logic-test.mjs   (fridge-menu 폴더에서)
 // 13 배포는 이 스크립트가 아니라 배포 단계에서 확인 (표에 결과 기재).

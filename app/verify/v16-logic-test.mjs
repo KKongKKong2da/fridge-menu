@@ -117,7 +117,7 @@ console.log('--- 3. 센서 구성 ---')
   ok(!app.includes('PointerSensor'), 'PointerSensor(단일 센서) 재도입 금지')
   ok(!app.includes('KeyboardSensor('), 'KeyboardSensor 없음')
   ok(app.includes('onDragStart={longPress.onDragStart}'), 'DndContext onDragStart → longPress (live 추적 연결)')
-  ok(app.includes('onDragEnd={longPress.onDragEnd}'), 'DndContext onDragEnd → longPress (lastEnd 기록)')
+  ok(app.includes('onDragEnd={handleDragEnd}') && app.includes('longPress.onDragEnd()'), 'DndContext onDragEnd → handleDragEnd (내부 longPress.onDragEnd()로 lastEnd 기록)')
 }
 
 // ---------- 섹션 4: 클릭 봉인 (색·× 오평발 방지) ----------
@@ -180,7 +180,7 @@ console.log('--- 8. v1.6.1 드롭 자리 고정 ---')
   ok(app.includes('setSnapshot') && app.includes('zoneNames'), 'App: 조별 순서 스냅샷 소유 (드롭 확정 시점 갱신)')
   ok(/items=\{snapshot\[zone\]\}/.test(app), 'App → ZoneList items = 스냅샷 (chips 직접 아님)')
   ok(zone.includes('items={safeItems}') && zone.includes('const safeItems ='), 'ZoneList: items = 스냅샷 + 집합 어긋남 시 chips 안전복귀')
-  ok(app.includes('computeAfterMove'), 'App: 드롭 시 스냅샷에 arrayMove 착지 재현')
+  ok(app.includes('computeSnapshotMove'), 'App: 드롭 시 스냅샷에 arrayMove 착지 재현 (v1.6.3 computeSnapshotMove)')
 
   // computeAfterMove(조별 스냅샷 착지)가 저장 moveChipState(플랫 착지)와 결과 일치하는지 재현 검증
   const ZONES = [1, 2, 3, 4, 5, 6, 7]

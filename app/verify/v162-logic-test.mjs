@@ -87,7 +87,7 @@ console.log('--- 6. 소스 정적 확인 (오타·유지) ---')
   ok(!rc.includes('(3줄)'), 'ResultCard 라벨의 "3줄" 고정 표기 제거 (줄 수 변동 대응)')
   const app = stripC(read('src/App.jsx', 'utf8'))
   ok(app.includes('buildPrompt(chips, kinds)'), 'App → buildPrompt 연결 (신호 변화 없음)')
-  ok(app.includes('v1.6.2'), 'footer 표기 v1.6.2')
+  ok(/v1\.6\.[23]/.test(app), 'footer 표기 v1.6.2/v1.6.3')
 }
 
 console.log(`\n합계 PASS=${pass} FAIL=${fail}`)

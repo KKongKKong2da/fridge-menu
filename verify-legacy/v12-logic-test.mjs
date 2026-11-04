@@ -1,3 +1,4 @@
+// [LEGACY] v1.2 스펙 기준 스크립트 — 현행 코드 기준 FAIL(12건)은 정상. 기록용, 게이트 아님(app/verify 5종).
 // ============================================================
 // verify/v12-logic-test.mjs — v1.2 검증 케이스 20건 (node 로직 시뮬)
 // 실행: node verify/v12-logic-test.mjs   (fridge-menu 폴더에서)
