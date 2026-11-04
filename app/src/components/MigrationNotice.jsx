@@ -1,8 +1,5 @@
-// MigrationNotice.jsx — v1.4 (명세 3절, v1.3 (a) 방식 유지)
-// v4 저장 키(fridge-chips:v4)가 없고 레거시 키(v1~v3)가 있는 최초 실행에만 표시.
-// 안내 + [기존 데이터 복사] 버튼(v1.3 chips JSON 클립보드) + [초기화 시작] 버튼.
-// [초기화 시작] 클릭 → confirmMigration(): 67종 파랑 확정 저장 + 레거시·recent·fridge-open-zones 삭제 + 안내 닫힘.
-// clipboard API가 없으면 textarea 폴백(ResultCard와 동일한 패턴).
+// MigrationNotice.jsx — v4 키 없고 레거시(v1~v3) 있는 최초 실행 안내
+// [기존 데이터 복사](레거시 JSON 클립보드, ResultCard와 동일 폴백) + [초기화 시작](confirmMigration)
 import { useState } from 'react'
 
 export function MigrationNotice({ getLegacyJson, onConfirm }) {

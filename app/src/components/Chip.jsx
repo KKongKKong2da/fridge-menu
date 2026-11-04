@@ -1,26 +1,7 @@
-// Chip.jsx — v1.6
-// 솔리드 칩 (상태색 100% 채움 + 테두리 없음 + 흰 글자, styles.css) 유지.
-// 클릭 1회 = 사이클 (파랑 1 -> 빨강 2 -> 회색 0 -> 파랑 1). 위치 이동은 storage에서 state만 변경.
-//
-// 드래그 (v1.6 확정 — 명세 1절은 목표만 지시, 구현 방식은 작성자 선택):
-//   [잡는 법] 입력 장치별로 센서를 분리한다 (App.jsx, dnd-kit — 신규 라이브러리 없음):
-//     - MouseSensor  { distance: 5 }  → PC: 눌른 채 5px = 즉시 드래그 (승인대로 PC는 현행 즉시 유지)
-//     - TouchSensor  { delay: LONG_PRESS_MS(600), tolerance: 10 }
-//         모바일: 0.6초 꾹 누름(아이폰 홈화면 방식). 600ms 안에 손이 10px 이상 움직이면
-//         센서가 스스로 취소하고 스크롤에 양보한다 (delay + tolerance 구조).
-//   [스크롤 화해] touch-action을 상태별 스위칭 (아래 style의 touchAction):
-//     - 평소(비활성): pan-y → 세로 손쓰기는 브라우저가 화면 스크롤로 직결 (칩은 안 움직임)
-//     - 드래그 중(isDragging): none → 브라우저 제스처가 드래그를 가로채는 것만 차단
-//     (v1.5.2.1 실험: 상시 manipulation/none 모두 모바일에서 드래그·스크롤 중 하나가 상므로
-//      "평소 pan-y, 활성 시 none" 인라인 스위칭 유지가 최선 — v1.5.1 결론 재확인)
-//   [색·× 오평발 방지 — v1.6 신규] longPressRef(App의 useLongPressDrag stateRef)로
-//     드래그 중(live) 또는 드래그 종료 350ms 이내의 클릭은 onCycle/onRemove를 실행하지 않는다.
-//     dnd-kit이 활성화 후 click을 잡음(stopPropagation)하지만, 센서 취소·드롭 경계에서
-//     클릭이 새는 경로를 화면 측에서 이중으로 봉함 (명세 검증 5).
-//   [짧은 누름] 600ms 미만 탭 = 클릭(색 사이클) 정상 동작 (센서 미활성 → 클릭 유지).
-//   × 버튼에는 listeners를 붙이지 않아 드래그 대상이 아니다 (v1.5 유지).
-//   [잡힌 표시·부드러움] 활성화 시 스케일 1.05 + 그림자(.chip--dragging) + z-index 50,
-//     드롭 후 새 자리로 150ms transform transition (유지).
+// Chip.jsx — 3색 솔리드 칩 (클릭 1회 = 파랑→빨강→회색→파랑)
+// · 드래그 활성 중/종료 350ms 이내 클릭 = 색·× 발동 봉인 (isDragLinked, App의 useLongPressDrag ref)
+// · touch-action 스위칭: 평소 pan-y(스크롤) → 드래그 중에만 none — 스크롤과 드래그 동거
+// · × 버튼은 드래그 대상 아님(listeners 미부착), 활성화 시 스케일 1.05 + z50 + 150ms 미끄러짐
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 

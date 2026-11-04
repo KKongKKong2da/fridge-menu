@@ -1,10 +1,6 @@
-// useLongPressDrag.js — v1.6.3 (순수 React 훅, 신규 라이브러리 없음)
-// 목적:
-//   ① 모바일 잡기 시간을 한곳에서 정의: 600ms (LONG_PRESS_MS — App의 TouchSensor delay가 참조하는 단일 소스)
-//   ② 드래그가 살아 있는 중(live)과 끝난 직후의 시각을 ref로 기록 →
-//      Chip의 클릭(색 사이클)·× 가 드래그 시작·종료와 얽혀 자동 발동하는 것을 막는다 (명세 1절 검증 5)
-//   ③ v1.6.3: 콜백을 useCallback으로 고정 → App의 handleDragEnd가 DndContext에
-//      항상 같은 함수 참조로 연결된다 (렌더마다 새 closure가 만들어지는 문제 제거).
+// useLongPressDrag.js — 모바일 롱프레스 600ms 단일 소스 (LONG_PRESS_MS)
+// · live/lastEnd ref 기록: 드래그 중·종료 350ms 이내의 클릭을 색·× 오평발로부터 봉인 (Chip이 참조)
+// · 콜백 useCallback 고정 — App의 handleDragEnd가 DndContext에 항상 같은 참조로 연결 (v1.6.3)
 import { useCallback, useRef } from 'react'
 
 export const LONG_PRESS_MS = 600 // 꾹 누름 → 잡힘 (App의 TouchSensor delay와 동일 값, 단일 소스)

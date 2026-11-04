@@ -1,9 +1,5 @@
-// ResultCard.jsx — v1.6.2 (명세 6·7절)
-// 전문: 임박(빨강=필수 사용) / 선택(파랑) / 조미료(상시) / 종류(선택 시). 줄바꿈 유지, 줄마다 ·
-// 라벨은 줄 수를 못 박지 않는다 (v1.6.2: 빨강 유무로 3~5줄) — "검색 프롬프트" 표기만.
-// 발판 2개만: [복사] = 전문을 그대로 클립보드(navigator.clipboard.writeText + textarea 폴백 유지)
-//             [Google] = 전문 전체(줄바꿈 포함) URL 인코딩 → 클릭 한 번으로 Google 검색 + AI 답변 (검증 17)
-// v1.1의 네이버/Gemini/Claude 버튼·LLM_URLS·hint 문구 제거 (발판 2개 축소).
+// ResultCard.jsx — 검색 프롬프트 카드 (3~5줄) + 발판 2개 [복사]( 전문 클립보드, textarea 폴백) /
+// [Google]( 전문 전체 URL 인코딩 → 클릭 1회 검색+AI)
 import { useState } from 'react'
 import { PROMPT_EMPTY_MSG, buildGoogleUrl } from '../lib/prompt.js'
 

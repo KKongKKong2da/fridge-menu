@@ -1,28 +1,10 @@
-// App.jsx — v1.6.3
-// [v1.6.3 근본 수정] "놓은 자리에 잠시 갔다가 옛 자리로 되돌아감 / 새로고침 후 옛 순서" 잔여 경로 봉합
-//   v1.6.1(d476041)의 items 스냅샷은 유효했고 그대로 유지한다. 그럼에도 남은 경로는 over의 정체였다:
-//     ZoneList의 SortableContext에 id={`zone-N`}을 부여하면 dnd-kit core는 해당 DOM 노드를
-//     'zone-N' id의 droppable로 등록한다. closestCenter 판정에서 칩 사이 gap·행 우측 여백·
-//     마지막 행 아래 여백·접힌 조의 잘린 영역에 놓으면 over.id가 '칩 이름'이 아니라 'zone-N'(컨테이너)이다.
-//     → applyDrag(from, 'zone-N') = moveChipState의 "없는 타깃 = 무이동" → 저장 no-op,
-//       스냅샷도 no-op → dnd-kit이 미리보기 transform을 원본 레이아웃으로 복원 =
-//       "잠시 그 자리에 갔다가 이전 자리로 되돌아간다". 순서가 저장 안 됐으니 새로고침 = 옛 순서.
-//       (PC 5px 드래그의 관성 낙하·모바일 손끝 드롭에서 특히 잦음 — 양쪽 증상과 일치)
-//   v1.6.3 봉합 (저장 로직 lib/storage.js 단일 소스):
-//     ① translateContainerTarget: over.id가 'zone-N'이면 "그 조 맨 뒤로 옮긴다"는 의도로 번역 →
-//        같은 조의 마지막 칩 이름으로 치환. (빈 조 = null = 무이동 / 칩 이름이면 그대로)
-//     ② 치환을 거친 타깃은 평범한 칩 드롭이 되므로 arrayMove 시맨틱이 그대로 적용된다:
-//        마지막 칩 인덱스에 착지 = "맨 뒤 이동"과 정확히 동일 → 저장·화면·새로고침이 모두 새 순서.
-//     ③ 조 간 여백 드롭은 마지막 칩을 줘도 moveChipState의 "조 간 = 원본 반환"에 걸려 무이동
-//        (명세 5절 "조 안 정렬만" 유지).
-//   검증: verify/v163-logic-test.mjs — 컨테이너 번역 케이스 + 번역→저장 체인 +
-//        화면 스냅샷(computeSnapshotMove)과 저장(moveChipState)이 같은 순서로 나가는지 대조 고정.
-// v1.6.1 유지: items 스냅샷 소유·드롭 확정 시에만 갱신 + 안전복귀(ZoneList).
-// v1.6 유지: 모바일 600ms 롱프레스, 색·× 오평발 봉인, touch-action pan-y/none, 회색 --gray, 접힘 정책.
-// v1.6.2 유지: 프롬프트 임박(빨강) 필수화.
-// [파손 복구] v1.6.1 커밋(d476041)의 App.jsx는 헤더 주석 한글 2자가 NUL(0x00)로 깨진 채 커밋되어
-//   git이 binary로 취급했고, mcp 도구가 그 파일을 못 읽게(580바이트 잘림) 만들었다. v1.6.2 때
-//   git checkout HEAD로 복원했고(v1.6.2 커밋에서 텍스트로 복원·승격), v1.6.3 작성에서 NUL 0건 확인.
+// App.jsx — v1.6.3 (화면 조립 전용)
+// · 드래그 정합성 3단계: 착지 번역(translateContainerTarget) → 저장(moveChipState) → 화면 스냅샷(computeSnapshotMove),
+//   셋 모두 lib/storage.js의 동일한 arrayMove 시맨틱 → 화면=저장=새로고침 순서 항상 일치
+// · dnd-kit items는 App 소유 스냅샷(드롭 확정 시에만 갱신) — 미리보기 transform 원복 방지 (v1.6.1)
+// · 센서: Mouse distance 5(PC 즉시) / Touch delay LONG_PRESS_MS(모바일 600ms 꾹) — useLongPressDrag가 단일 소스
+// · 640px 이하(matchMedia)에서만 조 접기 발동, 종류(kinds)·카드·설명 접힘은 화면 상태(localStorage 무관)
+// · 파일 내 구분자 join은 String.fromCharCode(0x2022) 사용 (NUL 문자 금지 — 소스 파손 방지)
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { useFridge } from './hooks/useFridge.js'

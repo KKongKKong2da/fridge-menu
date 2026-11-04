@@ -1,22 +1,7 @@
-// ZoneList.jsx — v1.6
-// v1.6: Chip에 longPressRef 전달 (드래그 직후 색·× 자동 발동 차단 — App의 useLongPressDrag stateRef).
-// v1.6 회색 통일: ▼/▲ 접기 버튼 = .zone__fold-btn--gray (styles.css --gray 단일 변수 참조).
-// v1.5.2 라벨: 텍스트 제거, ▼/▲ 기호만 (aria-label·title에는 '펼치기/접기' 유지).
-//   크기 = 조 끝 ＋ 버튼과 동일 (padding 6px 11px · font 15px · line-height 1). 색만 회색으로 변경
-//   (사용자 요청 ③: 모두 선택/해제보다 세로가 커 보이는 것 해소 + 기호만 실험)
-// 조 1개 = 헤더(번호 + 이름 + (n/m) + ＋) + 칩 목록 + ＋ 클릭 시 인라인 입력창 (Enter = 입력한 조에 파랑 칩)
-// v1.5.1 수정:
-//   - [접기 기능 소멸 버그] v1.5는 판정을 "scrollHeight > clientHeight + 4"로 두어, 조가 펼친 상태
-//     (max-height 제거 → clientHeight = 전체 콘텐츠 높이)가 되면 판정이 false가 되어
-//     "펼치기 ▼ / 접기 ▲" 버튼 자체가 사라졌다.
-//   - [해결] 판정을 콘텐츠 높이 기준으로 바꾼다:
-//       qualifies = scrollHeight > (2행 높이 74px + 4)   → 펼쳐져 있어도 scrollHeight는 전체 콘텐츠 높이이므로
-//       자격이 유지되어 접기 ▲ 버튼이 계속 보인다. 접힌 상태도 같은 값 → 펼치기 ▼ 버튼.
-//   - 라벨 텍스트는 v1.5.1까지 "펼치기 ▼ / 접기 ▲" + 44×44px → v1.5.2에서 기호만으로 교체 (위 참조)
-//   - (n/m) 헤더 카운트 유지: n = 파랑+빨강(state 1·2), m = 전체. 파생 계산(저장 안 함), 즉시 갱신.
-//   - SortableContext items = App의 스냅샷(v1.6.1): 드롭 확정 시점에만 갱신 → 미리보기 자리 고정
-//     (items가 prop chips 순서를 직접 따라가면 드롭 직전 transform이 원본으로 복원되어 칩이 옛 자리로 되돌아감).
-//     안전복귀: items와 chips 이름 집합이 어긋나면 chips 기준 items로 즉시 복귀. 접힌 조는 3행째 미표시 → 펼치고 옮기기 정책 (v1.5 유지).
+// ZoneList.jsx — 조 1개 (헤더 카운트 n/m + ＋ 추가 입력 + 칩 나열 + 모바일 접기 ▼▲)
+// · 접기 자격 = 콘텐츠 높이(scrollHeight) > 2행(74px)+4 실측(ResizeObserver) → 펼쳐도 ▲ 유지 (v1.5.1)
+// · items는 App 스냅샷 + 집합 어긋남 시 chips 안전복귀 (미리보기 원복 방지, v1.6.1)
+// · SortableContext id=zone-N — App의 컨테이너 착지 번역 규칙과 짝 (v1.6.3)
 import { useEffect, useRef, useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { Chip } from './Chip.jsx'

@@ -1,24 +1,10 @@
-// ============================================================
-// lib/storage.js — 순수 저장 로직 (React 없이 검증 가능) — v1.4
-// v1.4 규칙 (명세 1·3·4·5·6절):
-//   - 저장 키 fridge-chips:v4 (버전 bump), 값은 { chips: [...] } 뿐
-//   - chips 배열 순서 = 화면 순서 = 프롬프트 재료 나열 순서 (단일 소스)
-//   - 상태: 1 파랑(기본) / 2 빨강(임박) / 0 회색(후보 제외)  ← 값 0 유지, 표기만 회색
-//   - 사이클: 파랑→빨강→회색→파랑  ((state+1)%3)
-//   - 드래그 (v1.4 축소): moveChipState = 조 안 정렬만.
-//       조 간 이동(크로스드롭·zone 변경)·빈 조 droppable(dropIntoEmptyZone) 코드 제거.
-//       다른 조 칩 위에 드롭하면 아무 이동도 하지 않는다 (zone 값 유지 — 검증 4).
-//   - 접기/펼치기 (v1.4 신설, 명세 5절): 펼친 조 번호 배열을 fridge-open-zones에 저장.
-//       기본 = [] (전부 접힘). 640px 이하에서만 발동 (화면 판정은 화면 측).
-//       프롬프트 나열은 접힘과 무관: chips 배열 그대로 사용 (저장 로직과 분리).
-//   - 일괄 버튼: chips 배열 순서 그대로 두고 state만 변경
-//       모두 선택 = 전부 1 / 모두 해제 = 전부 0 (빨강 포함)
-//   - 추가(각 조 끝 +): 입력한 조의 칩이 된다. 중복 이름 금지, 그 조의 마지막 뒤, 파랑.
-//   - 디폴트: 7개 조 67종 전부 파랑 (materials.js)
-//   - 마이그레이션(3절): 신규 키(v4) 없고 레거시 키(v1~v3) 있으면 → 67종 파랑 + 안내
-//       completeMigration(초기화 시작): v4 저장 + 레거시 키·recent 잔존·fridge-open-zones 삭제
-//       파손 데이터는 안내 없이 67종 파랑 초기화
-// ============================================================
+// lib/storage.js — 순수 저장 로직 (React 무관, node로 검증: verify/v16·v163)
+// · 키 fridge-chips:v4 { chips }, 배열 순서 = 화면 = 프롬프트 나열 (단일 소스)
+// · 상태 1 파랑 / 2 빨강 / 0 회색, 사이클 (state+1)%3 · 일괄은 state 치환(순서 유지) · 추가는 그 조 맨 뒤
+// · loadState: 칩 전수 sanitize, 하나라도 파면 전체 기본 67종 파랑 초기화 (결정적 복구)
+// · 드래그: moveChipState = 조 안 정렬만(arrayMove, targetIndex 착지), 조 간/빈 조 = 원본 반환
+// · v1.6.3 translateContainerTarget: 컨테이너 착지 zone-N → 같은 조 마지막 칩 의도로 번역 (여백 드롭 = 맨 뒤)
+// · 마이그레이션: v4 없고 레거시(v1~v3) 있으면 67종 파랑 + completeMigration(레거시·recent·open-zones 삭제)
 import { DEFAULT_MATERIALS, ZONE_ORDER, STATE_BLUE, STATE_RED, STATE_OFF } from '../data/materials.js'
 
 export const STORAGE_KEY = 'fridge-chips:v4'
